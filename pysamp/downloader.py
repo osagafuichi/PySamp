@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import imageio_ffmpeg
 import yt_dlp
 
 from pysamp.engine import SAMPLE_RATE
@@ -10,8 +11,10 @@ def download(url: str, dest_dir: Path) -> tuple[Path, str]:
     opts = {
         "format": "bestaudio/best",
         "outtmpl": str(dest_dir / "%(id)s.%(ext)s"),
+        "ffmpeg_location": imageio_ffmpeg.get_ffmpeg_exe(),
         "noplaylist": True,
         "quiet": True,
+        "noprogress": True,
         "no_warnings": True,
         "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "wav"}],
         "postprocessor_args": {"extractaudio": ["-ar", str(SAMPLE_RATE), "-ac", "2"]},

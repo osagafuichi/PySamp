@@ -10,7 +10,14 @@ dependencies = [
     "soundfile",
     "numpy",
     "textual",
+    "imageio-ffmpeg",
 ]
+
+[project.optional-dependencies]
+build = ["pyinstaller"]
+
+[project.scripts]
+pysamp = "pysamp.__main__:main"
 
 [build-system]
 requires = ["setuptools>=61"]
