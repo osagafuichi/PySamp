@@ -1,1 +1,5 @@
 *.local.md
+.venv/
+__pycache__/
+*.egg-info/
+downloads/
