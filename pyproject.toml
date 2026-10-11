@@ -5,6 +5,7 @@ description = "Terminal sampler/mixer: one keyboard row per song"
 requires-python = ">=3.10"
 dependencies = [
     "yt-dlp",
+    "certifi",
     "sounddevice",
     "soundfile",
     "numpy",

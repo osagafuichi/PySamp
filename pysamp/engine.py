@@ -22,7 +22,7 @@ class Track:
         self.cues = [i * step for i in range(NUM_CUES)]
 
 
-def load_track(path: Path) -> Track:
+def load_track(path: Path, title: str | None = None) -> Track:
     data, sr = sf.read(str(path), dtype="float32", always_2d=True)
     if data.shape[1] == 1:
         data = np.repeat(data, 2, axis=1)
@@ -33,7 +33,7 @@ def load_track(path: Path) -> Track:
         x_old = np.linspace(0, 1, len(data), endpoint=False)
         x_new = np.linspace(0, 1, n_out, endpoint=False)
         data = np.stack([np.interp(x_new, x_old, data[:, c]) for c in range(2)], axis=1).astype(np.float32)
-    return Track(np.ascontiguousarray(data), path.stem)
+    return Track(np.ascontiguousarray(data), title or path.stem)
 
 
 class Mixer:
