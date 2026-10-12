@@ -67,7 +67,7 @@ ROW_CODES.forEach((codes, row) => codes.forEach((code, col) => { CODE_TO_SLOT[co
 const ROWS = 4, SONGS = 8, PER_PAGE = 9, NUM_CUES = 18, SEEK = 5, KEY_STEP = 0.05, WHEEL_GAIN = 0.0003;
 const PITCH_MIN = 0.5, PITCH_MAX = 2, PITCH_GAIN = 0.0001;
 const HELP = {
-  edit: "Edit mode: 1/Q/A/Z select a song | Space play/pause | M mark cue | Left/Right seek 5s | Backspace delete last cue | " +
+  edit: "Edit mode: 1/Q/A/Z select a song | Space play/pause | M mark cue | Left/Right seek 5s | hold a cue key + Backspace delete that cue | Backspace alone delete last cue | " +
     "drag waveform to seek | Tab bank | ` page | Enter play mode | scroll = volume | right-click or Option + scroll = pitch",
   play: "Play mode: 1/Q/A/Z select a song | other row keys trigger cues | Left/Right volume | Space stop all | " +
     "Tab bank | ` page | Enter edit mode | scroll = volume | right-click or Option + scroll = pitch",
@@ -78,6 +78,7 @@ let offline = false;
 let vol = { song: -1, value: 0, until: 0 };
 let pitch = { song: -1, value: 1, until: 0 };
 let drag = null;
+const held = new Map();
 const ui = { mode: "edit", bank: 0, page: 0, selected: 0 };
 const peaks = {};
 const $ = (id) => document.getElementById(id);
@@ -313,7 +314,7 @@ function editKey(code, song) {
   if (code === "Space") send({ action: "toggle_play", song });
   else if (code === "ArrowLeft" || code === "ArrowRight") send({ action: "seek", song, seconds: code === "ArrowRight" ? SEEK : -SEEK });
   else if (code === "KeyM") send({ action: "mark", song });
-  else if (code === "Backspace") send({ action: "remove_last_cue", song });
+  else if (code === "Backspace") deleteCue(song);
   else return false;
   return true;
 }
@@ -325,9 +326,22 @@ function playKey(code, song) {
   return true;
 }
 
-function rowKey(row, col) {
+function deleteCue(song) {
+  const last = [...held.values()].pop();
+  if (!last) send({ action: "remove_last_cue", song });
+  else if (!last.used) {
+    last.used = true;
+    send({ action: "remove_cue", song: last.song, cue: last.cue });
+  }
+}
+
+function rowKey(code, row, col) {
   const song = songOf(row);
-  if (col > 0) send({ action: "trigger", song, cue: ui.page * PER_PAGE + col - 1 });
+  if (col > 0) {
+    const cue = ui.page * PER_PAGE + col - 1;
+    held.set(code, { song, cue, used: false });
+    send({ action: "trigger", song, cue });
+  }
   ui.selected = song;
 }
 
@@ -351,8 +365,11 @@ document.addEventListener("keydown", (e) => {
   }
   else if (ui.mode === "edit" && editKey(code, song)) { /* handled */ }
   else if (ui.mode === "play" && playKey(code, song)) { /* handled */ }
-  else if (code in CODE_TO_SLOT) rowKey(...CODE_TO_SLOT[code]);
+  else if (code in CODE_TO_SLOT) rowKey(code, ...CODE_TO_SLOT[code]);
 });
+
+document.addEventListener("keyup", (e) => held.delete(e.code));
+window.addEventListener("blur", () => held.clear());
 
 function wheelAmount(delta, mode) {
   return mode === 1 ? delta * 33 : mode === 2 ? delta * 400 : delta;

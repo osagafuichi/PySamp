@@ -58,7 +58,7 @@ Cues fill the cue keys of the song's row in order. On row 1 the first `M` is key
 
 Your cues are saved automatically in `~/PySamp/cues`. Next time you load the same song, they are back.
 
-Made a mistake? `Backspace` deletes the last cue.
+Made a mistake? Hold a cue key and press `Backspace` to delete that one cue. The cues that remain are then renumbered by their position in the song, earliest first, so there are no gaps. `Backspace` alone deletes the last cue you marked.
 
 ### Step 3: perform (Play mode)
 
@@ -125,7 +125,8 @@ Both together give all 4 combinations:
 | `Space` | Play / pause the selected song |
 | `M` | Mark a cue at the current position |
 | `Left` / `Right` | Jump back / ahead 5 seconds |
-| `Backspace` | Delete the last cue |
+| Hold a cue key + `Backspace` | Delete that cue. The rest are renumbered by position in the song |
+| `Backspace` alone | Delete the last cue |
 | Cue keys | Audition a saved cue (except `M`, which marks) |
 
 ### Play mode keys
@@ -156,8 +157,8 @@ Click **Quit** in the page, or press `Ctrl+C` in the console window. Closing the
 
 ## Known limits
 
-- Cues fill in the order you mark them. They are not sorted by time. Flags that are close together can overlap.
-- You can only delete the last cue, not one in the middle.
+- Cues fill in the order you mark them. They are sorted by time only when you delete one. After that, a new cue goes into the first free slot, which can be out of time order. Flags that are close together can overlap.
+- You cannot delete with `M` held, because `M` marks a cue in Edit mode. Delete is Edit mode only.
 - You cannot remove a song from a slot. You can only replace it with another song.
 - Bank and page are toggle keys (`Tab`, `` ` ``), not hold keys. There is no "hold to play" yet. Command is not usable because the browser keeps those shortcuts.
 - In Edit mode `M` marks a cue, so cue 5 of row 4 (the `M` key) cannot be auditioned there. It works in Play mode.
