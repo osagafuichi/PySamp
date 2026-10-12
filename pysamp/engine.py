@@ -85,6 +85,13 @@ class Mixer:
                 target = track.pos + int(seconds * SAMPLE_RATE)
                 track.pos = min(max(target, 0), len(track.data) - 1)
 
+    def seek_to(self, song: int, fraction: float) -> None:
+        with self._lock:
+            track = self.tracks[song]
+            if track is not None:
+                target = int(fraction * len(track.data))
+                track.pos = min(max(target, 0), len(track.data) - 1)
+
     def mark_cue(self, song: int) -> int | None:
         with self._lock:
             track = self.tracks[song]

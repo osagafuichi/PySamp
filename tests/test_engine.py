@@ -74,6 +74,14 @@ def test_toggle_seek_and_cue_limits():
         mixer.seek(3, 1000)
         assert track.pos == len(track.data) - 1
 
+        mixer.seek_to(3, 0.5)
+        assert track.pos == len(track.data) // 2
+        mixer.seek_to(3, -1)
+        assert track.pos == 0
+        mixer.seek_to(3, 2)
+        assert track.pos == len(track.data) - 1
+        mixer.seek_to(5, 0.5)
+
         for expected in range(NUM_CUES):
             assert mixer.mark_cue(3) == expected
         assert NUM_CUES == 18
