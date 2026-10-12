@@ -1,7 +1,7 @@
 [project]
 name = "pysamp"
 version = "0.3.0"
-description = "Terminal sampler/mixer: one keyboard row per song, custom cue points"
+description = "Browser-based sampler/mixer: one keyboard row per song, custom cue points"
 requires-python = ">=3.10"
 dependencies = [
     "yt-dlp",
@@ -9,7 +9,6 @@ dependencies = [
     "sounddevice",
     "soundfile",
     "numpy",
-    "textual",
     "imageio-ffmpeg",
 ]
 
@@ -25,3 +24,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages = ["pysamp"]
+
+[tool.setuptools.package-data]
+pysamp = ["web/*.html"]

@@ -1,4 +1,5 @@
 """Build a standalone PySamp folder and zip it. Run on the OS you want to package for."""
+import os
 import platform
 import shutil
 import sys
@@ -8,8 +9,6 @@ import PyInstaller.__main__
 
 ROOT = Path(__file__).resolve().parent.parent
 COLLECT = [
-    "textual",
-    "rich",
     "yt_dlp",
     "imageio_ffmpeg",
     "sounddevice",
@@ -26,6 +25,7 @@ def main() -> None:
     args += ["--specpath", str(ROOT / "build")]
     for pkg in COLLECT:
         args += ["--collect-all", pkg]
+    args += ["--add-data", f"{ROOT / 'pysamp' / 'web'}{os.pathsep}pysamp/web"]
     args.append(str(ROOT / "launcher.py"))
     PyInstaller.__main__.run(args)
 
