@@ -135,6 +135,19 @@ def run() -> None:
         c.post({"action": "stop_all"})
         assert not c.song(0)["playing"]
 
+        # Deleting one cue renumbers the rest by position.
+        for fraction in (0.5, 0.2):
+            c.post({"action": "seek_to", "song": 0, "fraction": fraction})
+            c.post({"action": "mark", "song": 0})
+        assert c.song(0)["cues"][:3] == [SAMPLE_RATE, 5 * SAMPLE_RATE, 2 * SAMPLE_RATE]
+        before = len(saved)
+        c.post({"action": "remove_cue", "song": 0, "cue": 1})
+        assert c.song(0)["cues"][:3] == [SAMPLE_RATE, 2 * SAMPLE_RATE, None]
+        assert len(saved) == before + 1 and c.status().startswith("Deleted cue 2.")
+        c.post({"action": "remove_cue", "song": 0, "cue": 5})
+        assert c.status() == "Cue 6 is not set." and len(saved) == before + 1
+        c.post({"action": "remove_cue", "song": 3, "cue": 0})
+
         # Marking in an empty slot reports it; a full song reports it.
         c.post({"action": "mark", "song": 3})
         assert c.status() == "No song in this slot."
@@ -148,6 +161,9 @@ def run() -> None:
         assert status_of(lambda: c.post({"action": "pitch", "song": 0, "value": "fast"})) == 400
         assert status_of(lambda: c.post({"action": "pitch", "song": 0})) == 400
         assert status_of(lambda: c.post({"action": "trigger", "song": 0})) == 400
+        assert status_of(lambda: c.post({"action": "remove_cue", "song": 0})) == 400
+        assert status_of(lambda: c.post({"action": "remove_cue", "song": 0, "cue": NUM_CUES})) == 400
+        assert status_of(lambda: c.post({"action": "remove_cue", "song": 0, "cue": "1"})) == 400
         assert status_of(lambda: c.post([1, 2])) == 400
 
         # Waveform peaks.

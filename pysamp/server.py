@@ -104,6 +104,17 @@ class SamplerServer(ThreadingHTTPServer):
             if track is not None and mixer.remove_last_cue(song):
                 save_cues(track.track_id, track.cues)
                 self.status = "Deleted last cue."
+        elif action == "remove_cue":
+            slot = cmd["cue"]
+            if not isinstance(slot, int) or not 0 <= slot < NUM_CUES:
+                raise ValueError("bad cue")
+            track = mixer.tracks[song]
+            if track is not None:
+                if mixer.remove_cue(song, slot):
+                    save_cues(track.track_id, track.cues)
+                    self.status = f"Deleted cue {slot + 1}. The rest are renumbered by position."
+                else:
+                    self.status = f"Cue {slot + 1} is not set."
         elif action == "load":
             source = str(cmd["source"]).strip().strip("'\"")
             if source:
