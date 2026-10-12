@@ -40,13 +40,24 @@ Song 1: <paste a YouTube link, or drag in an audio file>
 Song 2: <another one>
 ```
 
-- Paste up to 8. Press Enter on an empty line when you are done.
+- Paste up to 8. Press Enter on an empty line when you are done. You can start with just one song, or none.
 - A song can be a YouTube link or the path to a file on your computer (wav, flac, ogg, mp3).
 - You can also pass them on the command line: `PySamp SOURCE1 SOURCE2 ...`
 - YouTube songs are downloaded and converted. A 4-minute song takes a few seconds.
 - Songs 1-4 are **bank A**. Songs 5-8 are **bank B**.
 
 Downloads are saved in `~/PySamp/downloads` (Windows: `C:\Users\<you>\PySamp\downloads`). A song you loaded before is reused.
+
+#### Fill the empty slots later (inside the app)
+
+If you started with fewer than 8 songs, the other slots show `(empty ...)`. Load a song into any slot without restarting:
+
+1. Select the slot: press its selector key (`1`, `Q`, `A`, `Z`), and press `Tab` first if it is in bank B.
+2. Press `Ctrl+O`. A text box opens under the songs.
+3. Paste a YouTube link or a file path and press `Enter`. The status line shows `Loading...` and then `Loaded song N`. The app keeps working while a YouTube song downloads.
+4. `Esc` cancels.
+
+While the text box is open, keys type into the box and do not play anything. If you load into a slot that already has a song, the new song replaces it. The old song's cues stay saved on disk for next time.
 
 ### Step 2: mark cue points (Edit mode)
 
@@ -99,6 +110,7 @@ Scroll anywhere in the window to change the volume of the **selected song**. You
 | `` ` `` (backtick, left of `1`) | Switch cue page: cues 1-9 (page 1) or cues 10-18 (page 2) |
 | `Up` / `Down` | Select the previous / next song (moves between banks) |
 | `Enter` | Switch between Edit mode and Play mode |
+| `Ctrl+O` | Load a song into the selected slot (see "Fill the empty slots later") |
 | `Ctrl+Q` | Quit |
 
 Both together give all 4 combinations:
@@ -151,7 +163,7 @@ PLAY MODE  |  bank A: songs 1-4  |  page 1: cues 1-9
 
 - Cues fill in the order you mark them. They are not sorted by time.
 - You can only delete the last cue, not one in the middle.
-- Songs load at start. To change songs, quit and start again.
+- You cannot remove a song from a slot. You can only replace it with another song.
 - Terminals cannot see a key being held or released, and cannot see Command or Option. So bank and page are toggle keys (`Tab`, `` ` ``), not hold keys. There is no "hold to play".
 - No loop, mute, solo, tempo, pitch, or EQ.
 - Volume is per song only. The master level is your system volume.
@@ -160,6 +172,8 @@ PLAY MODE  |  bank A: songs 1-4  |  page 1: cues 1-9
 ## Troubleshooting
 
 - **No sound:** check your system output device. Check that the volume of the song is above zero (scroll up raises it). In Edit mode, press `Space` on the selected song.
+- **Ctrl+O does nothing:** the text box only opens when no other box is open. Press `Esc` first. Some terminals reserve `Ctrl+O`; if yours does, tell me which terminal you use.
+- **"Could not load song N":** the status line shows the reason. A wrong link or a missing file are the usual causes. The slot stays as it was.
 - **Scroll does nothing:** your terminal may not pass mouse events. Terminal.app, iTerm2 and Windows Terminal do. Scroll with the pointer inside the PySamp window. Check the `>` marker: scroll changes the selected song only.
 - **Key does nothing:** that cue is not marked yet. Check the page (`` ` ``) and bank (`Tab`) in the top line.
 - **Download fails:** check the link opens in a browser. YouTube changes often, so a new download may fail until the app is updated. Songs already in the downloads folder still work.
@@ -208,7 +222,7 @@ For the DJ test, please answer:
 3. Is 18 cues per song enough? Is 8 songs enough? Is it a problem that the first key of each row is a selector and not a cue?
    Does scroll-for-volume feel good (step size, trackpad momentum, direction)?
 4. Do you need cues sorted by time, or labeled?
-5. What is missing to use it live? (loop, tempo match, key-lock, EQ, mute/solo, crossfade, hold-to-play, master volume, loading songs without restarting)
+5. What is missing to use it live? (loop, tempo match, key-lock, EQ, mute/solo, crossfade, hold-to-play, master volume, removing a song)
 6. Is there delay between key press and sound?
 7. Did the install work first try? Where did you get stuck?
 8. Any crashes? Send the text on the screen and the link you used.
