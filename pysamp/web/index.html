@@ -69,7 +69,7 @@ const PITCH_MIN = 0.5, PITCH_MAX = 2, PITCH_GAIN = 0.0001;
 const HELP = {
   edit: "Edit mode: 1/Q/A/Z select a song | Space play/pause | M mark cue | Left/Right seek 5s | hold a cue key + Backspace delete that cue | Backspace alone delete last cue | " +
     "drag waveform to seek | Tab bank | ` page | Enter play mode | scroll = volume | right-click or Option + scroll = pitch",
-  play: "Play mode: 1/Q/A/Z select a song | other row keys trigger cues | Left/Right volume | Space stop all | " +
+  play: "Play mode: 1/Q/A/Z select a song | other row keys trigger cues (other songs stop; hold Shift to keep them playing) | Left/Right volume | Space stop all | " +
     "Tab bank | ` page | Enter edit mode | scroll = volume | right-click or Option + scroll = pitch",
 };
 
@@ -186,7 +186,7 @@ function onWaveDown(s, e) {
     const dx = Math.abs((cue / d.total) * width - x);
     if (dx < best) { best = dx; hit = slot; }
   });
-  if (hit >= 0) send({ action: "trigger", song, cue: hit });
+  if (hit >= 0) send({ action: "trigger", song, cue: hit, layer: e.shiftKey });
   else if (ui.mode === "edit") {
     s.canvas.setPointerCapture(e.pointerId);
     drag = { s, song, fraction: x / width, sent: null };
@@ -335,12 +335,12 @@ function deleteCue(song) {
   }
 }
 
-function rowKey(code, row, col) {
+function rowKey(code, row, col, layer) {
   const song = songOf(row);
   if (col > 0) {
     const cue = ui.page * PER_PAGE + col - 1;
     held.set(code, { song, cue, used: false });
-    send({ action: "trigger", song, cue });
+    send({ action: "trigger", song, cue, layer });
   }
   ui.selected = song;
 }
@@ -365,7 +365,7 @@ document.addEventListener("keydown", (e) => {
   }
   else if (ui.mode === "edit" && editKey(code, song)) { /* handled */ }
   else if (ui.mode === "play" && playKey(code, song)) { /* handled */ }
-  else if (code in CODE_TO_SLOT) rowKey(code, ...CODE_TO_SLOT[code]);
+  else if (code in CODE_TO_SLOT) rowKey(code, ...CODE_TO_SLOT[code], e.shiftKey);
 });
 
 document.addEventListener("keyup", (e) => held.delete(e.code));
