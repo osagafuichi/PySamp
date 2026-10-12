@@ -86,7 +86,10 @@ class SamplerServer(ThreadingHTTPServer):
             raise ValueError("bad song")
         mixer = self.mixer
         if action == "trigger":
-            mixer.trigger(song, int(cmd["cue"]))
+            layer = cmd.get("layer", False)
+            if not isinstance(layer, bool):
+                raise ValueError("bad layer")
+            mixer.trigger(song, int(cmd["cue"]), layer)
         elif action == "toggle_play":
             mixer.toggle_play(song)
         elif action == "seek":

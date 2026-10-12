@@ -148,6 +148,16 @@ def run() -> None:
         assert c.status() == "Cue 6 is not set." and len(saved) == before + 1
         c.post({"action": "remove_cue", "song": 3, "cue": 0})
 
+        # Trigger stops the other songs unless layer is true.
+        mixer.set_track(4, load_track(wav, "second"))
+        c.post({"action": "mark", "song": 4})
+        c.post({"action": "trigger", "song": 4, "cue": 0})
+        c.post({"action": "trigger", "song": 0, "cue": 0, "layer": True})
+        assert c.song(0)["playing"] and c.song(4)["playing"]
+        c.post({"action": "trigger", "song": 0, "cue": 0})
+        assert c.song(0)["playing"] and not c.song(4)["playing"]
+        c.post({"action": "stop_all"})
+
         # Marking in an empty slot reports it; a full song reports it.
         c.post({"action": "mark", "song": 3})
         assert c.status() == "No song in this slot."
@@ -161,6 +171,7 @@ def run() -> None:
         assert status_of(lambda: c.post({"action": "pitch", "song": 0, "value": "fast"})) == 400
         assert status_of(lambda: c.post({"action": "pitch", "song": 0})) == 400
         assert status_of(lambda: c.post({"action": "trigger", "song": 0})) == 400
+        assert status_of(lambda: c.post({"action": "trigger", "song": 0, "cue": 0, "layer": "yes"})) == 400
         assert status_of(lambda: c.post({"action": "remove_cue", "song": 0})) == 400
         assert status_of(lambda: c.post({"action": "remove_cue", "song": 0, "cue": NUM_CUES})) == 400
         assert status_of(lambda: c.post({"action": "remove_cue", "song": 0, "cue": "1"})) == 400
