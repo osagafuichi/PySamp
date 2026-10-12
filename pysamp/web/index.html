@@ -25,6 +25,12 @@
   .vol { width:140px; height:10px; background:var(--bg); border-radius:5px; overflow:hidden; flex:none; }
   .vol i { display:block; height:100%; background:var(--accent); }
   .volnum { width:40px; color:var(--dim); font-variant-numeric:tabular-nums; flex:none; }
+  .pitchbox { display:flex; gap:10px; align-items:center; flex:none; cursor:pointer; }
+  .pitch { position:relative; width:100px; height:10px; background:var(--bg); border-radius:5px; overflow:hidden; }
+  .pitch i { position:absolute; top:0; bottom:0; background:var(--accent); }
+  .pitch::after { content:""; position:absolute; left:50%; top:0; bottom:0; width:2px; margin-left:-1px; background:var(--dim); }
+  .pitchnum { width:52px; color:var(--dim); font-variant-numeric:tabular-nums; }
+  .pitchnum.on { color:var(--text); }
   input { flex:1; background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:5px 8px; font:inherit; user-select:text; }
   #status { margin-top:12px; min-height:20px; }
   #help { color:var(--dim); margin-top:6px; font-size:12px; }
@@ -59,16 +65,18 @@ const ROW_CODES = [
 const CODE_TO_SLOT = {};
 ROW_CODES.forEach((codes, row) => codes.forEach((code, col) => { CODE_TO_SLOT[code] = [row, col]; }));
 const ROWS = 4, SONGS = 8, PER_PAGE = 9, NUM_CUES = 18, SEEK = 5, KEY_STEP = 0.05, WHEEL_GAIN = 0.0003;
+const PITCH_MIN = 0.5, PITCH_MAX = 2, PITCH_GAIN = 0.0001;
 const HELP = {
   edit: "Edit mode: 1/Q/A/Z select a song | Space play/pause | M mark cue | Left/Right seek 5s | Backspace delete last cue | " +
-    "drag waveform to seek | Tab bank | ` page | Enter play mode | scroll = volume",
+    "drag waveform to seek | Tab bank | ` page | Enter play mode | scroll = volume | right-click or Option + scroll = pitch",
   play: "Play mode: 1/Q/A/Z select a song | other row keys trigger cues | Left/Right volume | Space stop all | " +
-    "Tab bank | ` page | Enter edit mode | scroll = volume",
+    "Tab bank | ` page | Enter edit mode | scroll = volume | right-click or Option + scroll = pitch",
 };
 
 let S = null;
 let offline = false;
 let vol = { song: -1, value: 0, until: 0 };
+let pitch = { song: -1, value: 1, until: 0 };
 let drag = null;
 const ui = { mode: "edit", bank: 0, page: 0, selected: 0 };
 const peaks = {};
@@ -97,6 +105,18 @@ function nudgeVolume(song, delta) {
   send({ action: "volume", song, value });
 }
 
+function setPitch(song, rate) {
+  if (!S || !S.songs[song].loaded) return;
+  pitch = { song, value: rate, until: performance.now() + 250 };
+  send({ action: "pitch", song, value: rate });
+}
+
+function nudgePitch(song, octaves) {
+  if (!S || !S.songs[song].loaded) return;
+  const current = pitch.song === song && performance.now() < pitch.until ? pitch.value : S.songs[song].pitch;
+  setPitch(song, Math.min(PITCH_MAX, Math.max(PITCH_MIN, current * 2 ** octaves)));
+}
+
 function fetchPeaks(song, id) {
   peaks[song] = { id, data: null };
   fetch("/peaks/" + song + "?t=" + T)
@@ -113,6 +133,7 @@ for (let row = 0; row < ROWS; row++) {
     '<div class="head"><span class="badge"></span><span class="title"></span><span class="info"></span></div>' +
     "<canvas></canvas>" +
     '<div class="foot"><div class="vol"><i></i></div><span class="volnum"></span>' +
+    '<div class="pitchbox" title="Pitch. Click to reset."><div class="pitch"><i></i></div><span class="pitchnum"></span></div>' +
     '<input placeholder="Paste a YouTube link or file path to load into this slot"><button>Load</button></div>';
   $("strips").append(el);
   const s = {
@@ -123,6 +144,9 @@ for (let row = 0; row < ROWS; row++) {
     info: el.querySelector(".info"),
     fill: el.querySelector(".vol i"),
     volnum: el.querySelector(".volnum"),
+    pitchBox: el.querySelector(".pitchbox"),
+    pitchFill: el.querySelector(".pitch i"),
+    pitchNum: el.querySelector(".pitchnum"),
     input: el.querySelector("input"),
   };
   const load = () => {
@@ -133,6 +157,7 @@ for (let row = 0; row < ROWS; row++) {
     s.input.blur();
   };
   el.addEventListener("mousedown", () => { ui.selected = songOf(row); });
+  s.pitchBox.addEventListener("click", () => setPitch(songOf(row), 1));
   s.canvas.addEventListener("pointerdown", (e) => onWaveDown(s, e));
   s.canvas.addEventListener("pointermove", (e) => { if (drag && drag.s === s) drag.fraction = waveFraction(s, e); });
   s.canvas.addEventListener("pointerup", endDrag);
@@ -239,6 +264,7 @@ function drawStrip(s) {
   const song = songOf(s.row), d = S.songs[song];
   s.el.classList.toggle("sel", song === ui.selected);
   s.badge.textContent = ROW_KEYS[s.row][0].toUpperCase();
+  s.pitchBox.style.visibility = d.loaded ? "visible" : "hidden";
   s.canvas.style.cursor = ui.mode === "edit" ? "ew-resize" : "default";
   if (d.loaded) {
     const used = d.cues.filter((c) => c !== null).length;
@@ -246,11 +272,19 @@ function drawStrip(s) {
     s.info.textContent = fmt(d.pos) + " / " + fmt(d.total) + "  |  cues " + used + "/" + NUM_CUES + "  |  " + (d.playing ? "playing" : "stopped");
     s.fill.style.width = d.volume * 100 + "%";
     s.volnum.textContent = Math.round(d.volume * 100) + "%";
+    const octaves = Math.log2(d.pitch), raw = (d.pitch - 1) * 100;
+    const percent = Math.abs(raw) < 0.05 ? 0 : raw;
+    s.pitchFill.style.left = (octaves < 0 ? 50 + octaves * 50 : 50) + "%";
+    s.pitchFill.style.width = Math.abs(octaves) * 50 + "%";
+    s.pitchNum.textContent = (percent > 0 ? "+" : "") + percent.toFixed(1) + "%";
+    s.pitchNum.classList.toggle("on", percent !== 0);
   } else {
     s.title.textContent = "Song " + (song + 1) + " - empty";
     s.info.textContent = "";
     s.fill.style.width = "0";
     s.volnum.textContent = "";
+    s.pitchFill.style.width = "0";
+    s.pitchNum.textContent = "";
   }
   drawWave(s, d);
 }
@@ -328,8 +362,12 @@ window.addEventListener("wheel", (e) => {
   if (e.ctrlKey) return;
   e.preventDefault();
   const dy = wheelAmount(e.deltaY, e.deltaMode), dx = wheelAmount(e.deltaX, e.deltaMode);
-  nudgeVolume(ui.selected, (Math.abs(dy) >= Math.abs(dx) ? -dy : dx) * WHEEL_GAIN);
+  const amount = Math.abs(dy) >= Math.abs(dx) ? -dy : dx;
+  if (e.buttons & 2 || e.altKey) nudgePitch(ui.selected, amount * PITCH_GAIN);
+  else nudgeVolume(ui.selected, amount * WHEEL_GAIN);
 }, { passive: false });
+
+document.addEventListener("contextmenu", (e) => { if (e.target.tagName !== "INPUT") e.preventDefault(); });
 
 $("mode").addEventListener("click", () => { ui.mode = ui.mode === "edit" ? "play" : "edit"; });
 $("bank0").addEventListener("click", () => setBank(0));
