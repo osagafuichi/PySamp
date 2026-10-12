@@ -52,7 +52,7 @@ PySamp starts in **Edit mode**.
 1. Pick a song with its selector key (`1`, `Q`, `A`, or `Z`), by clicking its panel, or with `Up` / `Down`.
 2. Press `Space` to play. Press `Space` again to pause.
 3. Press `M` at each moment you want a cue (a drop, a beat, a vocal).
-4. Use `Left` / `Right` to jump back or ahead 5 seconds, or click the waveform to jump to that spot.
+4. Use `Left` / `Right` to jump back or ahead 5 seconds, or press on the waveform and drag to move the playhead.
 
 Cues fill the cue keys of the song's row in order. On row 1 the first `M` is key `2`, the second is `3`, and so on up to `0` (the 9th). The 10th to 18th go on **page 2** (see below). Each song holds up to 18 cues. Each cue shows on the waveform as an orange flag with its key letter. The status line tells you which cue you just marked.
 
@@ -88,10 +88,15 @@ A selector key only selects. It never plays. The selected song has the teal bord
 | Scroll anywhere in the window | Volume of the **selected song** (no need to hover) |
 | Click a song panel | Select that song |
 | Click an orange cue flag | Jump to that cue and play |
-| Click the waveform (Edit mode) | Jump to that spot |
+| Press and drag on the waveform (Edit mode) | Move the playhead. It follows the pointer, also while playing |
+| Hold right button and scroll | Pitch of the **selected song** |
+| Hold `Option` (Mac) or `Alt` (Windows) and scroll | Pitch of the selected song (use this on a trackpad) |
+| Click the pitch bar of a song | Reset its pitch to normal |
 | Mode / bank / page buttons | Same as `Enter` / `Tab` / `` ` `` |
 
 - Mouse wheel and two-finger trackpad scrolling both work. A bigger scroll changes the volume more.
+- Pitch works like a turntable: higher pitch also means faster tempo. The range is half speed to double speed. Pitch is not saved. It resets when you restart.
+- On a Mac trackpad, "hold right-click and scroll" needs one finger pressed in a two-finger click while another finger scrolls. That is hard, so use `Option` + scroll instead.
 - The direction follows your system "natural scrolling" setting. If it feels backwards, flip that setting.
 - A fast trackpad flick keeps scrolling for a moment (momentum), so use small movements for fine control.
 
@@ -141,7 +146,7 @@ Pressing a cue key also selects that song, so scrolling or `Left` / `Right` righ
   - On the right: current time / length, how many cues are set (`5/18`), and `playing` or `stopped`.
   - The waveform: teal is already played, grey is still to come. The white line is the playhead.
   - Orange flags are the cues on the current page, each with its key letter. The white flag is the last cue you triggered. Faint lines are cues on the other page.
-  - The bar at the bottom left is the volume. The text box loads a song into this slot.
+  - The bar at the bottom left is the volume. Next to it is the pitch bar: the tick in the middle is normal pitch, the fill grows left (slower) or right (faster), and the number shows the change in percent. The text box loads a song into this slot.
 - **Status line:** what just happened (cue marked, song loaded, errors).
 - **Help line:** the keys for the current mode.
 
@@ -156,7 +161,8 @@ Click **Quit** in the page, or press `Ctrl+C` in the console window. Closing the
 - You cannot remove a song from a slot. You can only replace it with another song.
 - Bank and page are toggle keys (`Tab`, `` ` ``), not hold keys. There is no "hold to play" yet. Command is not usable because the browser keeps those shortcuts.
 - In Edit mode `M` marks a cue, so cue 5 of row 4 (the `M` key) cannot be auditioned there. It works in Play mode.
-- No loop, mute, solo, tempo, pitch, or EQ.
+- No loop, mute, solo, tempo-only change, key lock, or EQ. Pitch and tempo change together.
+- Sound at high pitch settings may be a little rough (simple resampling).
 - Volume is per song only. The master level is your system volume.
 - Many keyboards cannot read more than about 6 keys at once.
 
@@ -216,7 +222,8 @@ For the DJ test, please answer:
 3. Do `Tab` (bank) and `` ` `` (page) feel natural while playing? Would you prefer other keys?
 4. Is 18 cues per song enough? Is 8 songs enough? Is it a problem that the first key of each row is a selector and not a cue?
 5. Does scroll-for-volume feel good (step size, trackpad momentum, direction)?
-6. What is missing to use it live? (loop, tempo match, key-lock, pitch, EQ, mute/solo, crossfade, hold-to-play, master volume, removing a song)
+6. What is missing to use it live? (loop, tempo match, key-lock, EQ, mute/solo, crossfade, hold-to-play, master volume, removing a song)
+   Does pitch feel right (step size, range)? Do you need pitch to change tempo only, without changing the key (key-lock)?
 7. Is there delay between key press and sound?
 8. Did the install work first try? Where did you get stuck?
 9. Any crashes? Send the text from the console window and the link you used.
