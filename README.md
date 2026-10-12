@@ -176,6 +176,7 @@ PLAY MODE  |  bank A: songs 1-4  |  page 1: cues 1-9
 - **"Could not load song N":** the status line shows the reason. A wrong link or a missing file are the usual causes. The slot stays as it was.
 - **Scroll does nothing:** your terminal may not pass mouse events. Terminal.app, iTerm2 and Windows Terminal do. Scroll with the pointer inside the PySamp window. Check the `>` marker: scroll changes the selected song only.
 - **Key does nothing:** that cue is not marked yet. Check the page (`` ` ``) and bank (`Tab`) in the top line.
+- **"YouTube blocked the download (bot check)":** YouTube sometimes asks for a login. PySamp then tries the cookies of your browser (Chrome, Safari, Firefox, Edge, Brave), so log in to YouTube in one of them first. On Mac, allow the Keychain prompt for Chrome, or give Terminal "Full Disk Access" for Safari. To force one browser, start with `PYSAMP_BROWSER=firefox`. A local audio file always works.
 - **Download fails:** check the link opens in a browser. YouTube changes often, so a new download may fail until the app is updated. Songs already in the downloads folder still work.
 - **Mac says the app "cannot be opened":** run the `xattr` command in the Install section.
 - **Screen looks broken:** make the terminal window larger (at least 100 columns wide).
