@@ -144,11 +144,11 @@ A song that stops because you triggered another one keeps its place. Select it a
 
 ### Caps Lock: drum kit
 
-Turn **Caps Lock on** and the 40 keys from `1` to `/` become drum pads. The song panels are replaced by a grid of keycaps that shows what each key plays, and a teal **DRUMS** tag appears in the top bar. The songs keep playing underneath. Turn Caps Lock off to go back to normal. `Tab`, `` ` ``, `Enter`, `Up` / `Down`, `Space` and the other non-letter keys keep their normal job. You can also click a pad.
+Turn **Caps Lock on** and the 40 keys from `1` to `/` become drum pads. A grid of keycaps appears on the right and shows what each key plays. The song panels stay visible on the left (narrower), and a teal **DRUMS** tag appears in the top bar. The songs keep playing. On a window narrower than 1000 px the grid goes below the songs. Turn Caps Lock off to go back to normal. `Tab`, `` ` ``, `Enter`, `Up` / `Down`, `Space` and the other non-letter keys keep their normal job. You can also click a pad.
 
 | Row | Keys | Pads |
 |-----|------|------|
-| Number row | `1 2 3 4 5 6 7 8 9 0` | Cowbell, Clave, Woodblock, Triangle, Tambourine, Conga High, Conga Low, Bongo, Maracas, Laser |
+| Number row | `1 2 3 4 5 6 7 8 9 0` | Cowbell, Clave, Wood Block, Triangle, Tambo, Conga High, Conga Low, Bongo, Maracas, Laser |
 | Top letter row | `Q W E R T Y U I O P` | Closed Hat, Tight Hat, Open Hat, Pedal Hat, Shaker, Ride, Ride Bell, Crash, Dark Crash, Splash |
 | Home row | `A S D F G H J K L ;` | Snare, Boom Snare, House Snare, Clap, House Clap, Rimshot, Side Stick, Snap, Ghost Snare, Gated Snare |
 | Bottom row | `Z X C V B N M , . /` | 808 Kick, Boom Kick, House Kick, Punch Kick, Tight Kick, Floor Tom, Low Tom, Mid Tom, High Tom, Electro Tom |

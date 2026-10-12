@@ -150,9 +150,9 @@ def woodblock() -> np.ndarray:
 PADS = [
     ("Cowbell", cowbell, 0.8, 0),
     ("Clave", lambda: tone(2500, 0.03, 0.15), 0.8, 0),
-    ("Woodblock", woodblock, 0.8, 0),
+    ("Wood Block", woodblock, 0.8, 0),
     ("Triangle", triangle, 0.6, 0),
-    ("Tambourine", tambourine, 0.8, 0),
+    ("Tambo", tambourine, 0.8, 0),
     ("Conga High", lambda: conga(330), 0.9, 0),
     ("Conga Low", lambda: conga(220), 0.9, 0),
     ("Bongo", lambda: conga(450), 0.8, 0),
