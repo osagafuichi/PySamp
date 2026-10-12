@@ -3,9 +3,10 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.css.query import NoMatches
 from textual.events import Key, MouseScrollDown, MouseScrollLeft, MouseScrollRight, MouseScrollUp
-from textual.widgets import Static
+from textual.widgets import Input, Static
 
 from pysamp.cuestore import save_cues
+from pysamp.loader import load_source
 from pysamp.engine import (
     CUES_PER_PAGE,
     NUM_PAGES,
@@ -22,11 +23,12 @@ VOLUME_STEP = 0.05
 SCROLL_STEP = 0.02
 BAR_WIDTH = 40
 HELP = {
-    "edit": "1/q/a/z: select song | scroll: volume | space: play/pause | m: mark cue | left/right: seek 5s | "
-    "backspace: delete last cue | tab: bank | `: page | enter: play mode | ctrl+q: quit",
-    "play": "1/q/a/z: select song | scroll: volume | other row keys: trigger cue | left/right: volume | "
-    "space: stop all | tab: bank | `: page | enter: edit mode | ctrl+q: quit",
+    "edit": "1/q/a/z: select song | ctrl+o: load song | scroll: volume | space: play/pause | m: mark cue | "
+    "left/right: seek 5s | backspace: delete last cue | tab: bank | `: page | enter: play mode | ctrl+q: quit",
+    "play": "1/q/a/z: select song | ctrl+o: load song | scroll: volume | other row keys: trigger cue | "
+    "left/right: volume | space: stop all | tab: bank | `: page | enter: edit mode | ctrl+q: quit",
 }
+LOADER_HINT = "paste a YouTube link or file path, Enter to load, Esc to cancel."
 
 
 def fmt_time(samples: int) -> str:
@@ -35,8 +37,16 @@ def fmt_time(samples: int) -> str:
 
 
 class SamplerApp(App):
-    CSS = "Screen { overflow: hidden; } Static { height: auto; margin: 1 2 0 2; }"
-    BINDINGS = [Binding("tab", "toggle_bank", "Bank", show=False, priority=True)]
+    CSS = """
+    Screen { overflow: hidden; }
+    Static { height: auto; margin: 1 2 0 2; }
+    #loader { display: none; margin: 1 2 0 2; }
+    """
+    AUTO_FOCUS = ""
+    BINDINGS = [
+        Binding("tab", "toggle_bank", "Bank", show=False, priority=True),
+        Binding("ctrl+o", "load_song", "Load song", show=False, priority=True),
+    ]
 
     def __init__(self, mixer: Mixer):
         super().__init__()
@@ -45,12 +55,14 @@ class SamplerApp(App):
         self.bank = 0
         self.page = 0
         self.mode = "edit"
+        self.loading = False
         self.status = "Edit mode: select a song, press space to play, m to mark cues."
 
     def compose(self) -> ComposeResult:
         yield Static(id="header")
         for i in range(NUM_ROWS):
             yield Static(id=f"row{i}")
+        yield Input(placeholder="YouTube link or file path", id="loader")
         yield Static(id="status")
         yield Static(id="help")
 
@@ -59,12 +71,58 @@ class SamplerApp(App):
         self.refresh_view()
 
     def action_toggle_bank(self) -> None:
+        if self.loading:
+            return
         self.bank = 1 - self.bank
         self.selected = self.bank * NUM_ROWS + self.selected % NUM_ROWS
         self.refresh_view()
 
+    def action_load_song(self) -> None:
+        if self.loading:
+            return
+        self.loading = True
+        box = self.query_one("#loader", Input)
+        box.value = ""
+        box.display = True
+        box.focus()
+        self.status = f"Load into song {self.selected + 1}: {LOADER_HINT}"
+        self.refresh_view()
+
+    def close_loader(self) -> None:
+        self.loading = False
+        self.query_one("#loader", Input).display = False
+        self.set_focus(None)
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        source = event.value.strip().strip("'\"")
+        self.close_loader()
+        if source:
+            song = self.selected
+            self.status = f"Loading song {song + 1}..."
+            self.run_worker(lambda: self.load_into(song, source), thread=True)
+        else:
+            self.status = "Load cancelled."
+        self.refresh_view()
+
+    def load_into(self, song: int, source: str) -> None:
+        try:
+            track = load_source(source)
+        except Exception as exc:
+            lines = str(exc).strip().splitlines() or [type(exc).__name__]
+            self.status = f"Could not load song {song + 1}: {lines[0][:120]}"
+            return
+        self.mixer.set_track(song, track)
+        self.status = f"Loaded song {song + 1}: {track.title}. Switch to Edit mode to mark cues."
+
     def on_key(self, event: Key) -> None:
         key = event.key
+        if self.loading:
+            if key == "escape":
+                self.close_loader()
+                self.status = "Load cancelled."
+                self.refresh_view()
+            event.stop()
+            return
         if key in ("up", "down"):
             self.selected = (self.selected + (1 if key == "down" else -1)) % NUM_SONGS
             self.bank = self.selected // NUM_ROWS
@@ -168,7 +226,7 @@ class SamplerApp(App):
             return
         for row in range(NUM_ROWS):
             self.query_one(f"#row{row}", Static).update(self.render_row(row))
-        self.query_one("#status", Static).update(self.status)
+        self.query_one("#status", Static).update(Text(self.status))
         self.query_one("#help", Static).update(HELP[self.mode])
 
     def render_row(self, row: int) -> Text:
@@ -177,7 +235,7 @@ class SamplerApp(App):
         label = f"{ROW_KEYS[row][0]} | {ROW_KEYS[row][1]}..{ROW_KEYS[row][-1]}"
         track = self.mixer.tracks[song]
         if track is None:
-            return Text(f"{marker} {label}  (empty)")
+            return Text(f"{marker} {label}  (empty - select it, then press ctrl+o to load a song)")
         total = max(len(track.data), 1)
         cells = ["."] * BAR_WIDTH
         for slot, cue in enumerate(track.cues):

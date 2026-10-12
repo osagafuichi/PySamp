@@ -159,7 +159,76 @@ async def run_scroll() -> None:
             assert abs(mixer.tracks[5].volume - 0.96) < 1e-6
 
 
+async def run_load() -> None:
+    with tempfile.TemporaryDirectory() as d:
+        wav = Path(d) / "ramp.wav"
+        make_ramp_wav(wav, seconds=5)
+
+        def fake_load(source):
+            if source == "bad":
+                raise RuntimeError("ERROR: no such video\nsecond line")
+            return load_track(wav, f"loaded {source}")
+
+        app_module.load_source = fake_load
+        mixer = Mixer()
+        mixer.set_track(0, load_track(wav, "first"))
+        app = SamplerApp(mixer)
+        async with app.run_test() as pilot:
+            box = app.query_one("#loader")
+            assert not box.display
+
+            # Select an empty slot and open the loader.
+            await pilot.press("a")
+            assert app.selected == 2 and mixer.tracks[2] is None
+            await pilot.press("ctrl+o")
+            assert app.loading and box.display
+
+            # Keys go to the text box, not the sampler.
+            await pilot.press("q")
+            assert box.value == "q" and app.selected == 2
+            await pilot.press("tab")
+            assert app.bank == 0
+
+            # Load into the selected empty slot.
+            box.value = "song.wav"
+            await pilot.press("enter")
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            assert not app.loading and not box.display
+            assert mixer.tracks[2] is not None and mixer.tracks[2].title == "loaded song.wav"
+            assert app.status.startswith("Loaded song 3")
+
+            # Sampler keys work again afterwards.
+            await pilot.press("q")
+            assert app.selected == 1
+
+            # Escape cancels without loading.
+            await pilot.press("z")
+            await pilot.press("ctrl+o")
+            await pilot.press("escape")
+            assert not app.loading and not box.display and mixer.tracks[3] is None
+            assert app.status == "Load cancelled."
+
+            # A failed load reports the error and leaves the slot empty.
+            await pilot.press("ctrl+o")
+            box.value = "bad"
+            await pilot.press("enter")
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            assert mixer.tracks[3] is None
+            assert app.status == "Could not load song 4: ERROR: no such video"
+
+            # Loading into an occupied slot replaces it.
+            await pilot.press("1")
+            await pilot.press("ctrl+o")
+            box.value = "other.wav"
+            await pilot.press("enter")
+            await app.workers.wait_for_complete()
+            assert mixer.tracks[0].title == "loaded other.wav"
+
+
 if __name__ == "__main__":
     asyncio.run(run())
     asyncio.run(run_scroll())
+    asyncio.run(run_load())
     print("app tests passed")
