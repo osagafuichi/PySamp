@@ -125,6 +125,19 @@ class Mixer:
                     return True
             return False
 
+    def remove_cue(self, song: int, slot: int) -> bool:
+        with self._lock:
+            track = self.tracks[song]
+            if track is None or not 0 <= slot < NUM_CUES or track.cues[slot] is None:
+                return False
+            kept = sorted(
+                ((pos, old) for old, pos in enumerate(track.cues) if pos is not None and old != slot)
+            )
+            track.cues[:] = [pos for pos, _ in kept] + [None] * (NUM_CUES - len(kept))
+            moved = {old: new for new, (_, old) in enumerate(kept)}
+            track.active_cue = moved.get(track.active_cue) if track.active_cue != slot else None
+            return True
+
     def stop_all(self) -> None:
         with self._lock:
             for track in self.tracks:

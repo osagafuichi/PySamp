@@ -94,6 +94,37 @@ def test_toggle_seek_and_cue_limits():
         assert mixer.mark_cue(5) is None and not mixer.remove_last_cue(5), "empty song"
 
 
+def test_remove_cue_renumbers_by_position():
+    with tempfile.TemporaryDirectory() as d:
+        wav = Path(d) / "ramp.wav"
+        make_ramp_wav(wav)
+        track = load_track(wav)
+        mixer = Mixer()
+        mixer.set_track(0, track)
+
+        for seconds in (5, 2, 8, 2):
+            mixer.seek_to(0, seconds / 10)
+            mixer.mark_cue(0)
+        s = SAMPLE_RATE
+        assert track.cues[:4] == [5 * s, 2 * s, 8 * s, 2 * s]
+
+        mixer.trigger(0, 2)
+        assert track.active_cue == 2
+        assert mixer.remove_cue(0, 0)
+        assert track.cues[:4] == [2 * s, 2 * s, 8 * s, None], "sorted by position, packed to the front"
+        assert track.cues[4:] == [None] * (NUM_CUES - 4)
+        assert track.active_cue == 2, "active cue follows its position (8s)"
+
+        assert mixer.remove_cue(0, 2)
+        assert track.active_cue is None, "deleting the active cue clears it"
+        assert track.cues[:3] == [2 * s, 2 * s, None]
+
+        assert not mixer.remove_cue(0, 2), "slot already empty"
+        assert not mixer.remove_cue(0, NUM_CUES) and not mixer.remove_cue(0, -1)
+        assert not mixer.remove_cue(5, 0), "empty song"
+        assert mixer.mark_cue(0) == 2, "next mark fills the first free slot"
+
+
 def test_pitch():
     with tempfile.TemporaryDirectory() as d:
         wav = Path(d) / "ramp.wav"
@@ -179,6 +210,7 @@ def test_cue_store_roundtrip():
 if __name__ == "__main__":
     test_mark_trigger_and_volume()
     test_toggle_seek_and_cue_limits()
+    test_remove_cue_renumbers_by_position()
     test_pitch()
     test_empty_row_and_clipping()
     test_cue_store_roundtrip()
