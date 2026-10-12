@@ -1,6 +1,6 @@
 [project]
 name = "pysamp"
-version = "0.3.0"
+version = "0.4.0"
 description = "Browser-based sampler/mixer: one keyboard row per song, custom cue points"
 requires-python = ">=3.10"
 dependencies = [
