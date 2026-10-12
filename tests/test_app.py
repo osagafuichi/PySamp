@@ -2,6 +2,8 @@ import asyncio
 import tempfile
 from pathlib import Path
 
+from textual import events
+
 import pysamp.app as app_module
 from pysamp.app import SamplerApp
 from pysamp.engine import SAMPLE_RATE, Mixer, load_track
@@ -108,6 +110,56 @@ async def run() -> None:
             assert not mixer.tracks[0].playing
 
 
+def wheel(kind, x=0, y=0):
+    return kind(None, x, y, 0, 0, 0, False, False, False, x, y)
+
+
+async def run_scroll() -> None:
+    with tempfile.TemporaryDirectory() as d:
+        wav = Path(d) / "ramp.wav"
+        make_ramp_wav(wav, seconds=5)
+        mixer = Mixer()
+        for song in (0, 1, 5):
+            mixer.set_track(song, load_track(wav, f"song {song + 1}"))
+
+        app = SamplerApp(mixer)
+        async with app.run_test() as pilot:
+            # Wheel events enter at the app, are routed to the widget under the pointer,
+            # and must bubble back up. The pointer sits over row 4, never the selected song.
+            region = app.query_one("#row3").region
+
+            async def scroll(kind, times=1):
+                for _ in range(times):
+                    app.post_message(wheel(kind, region.x + 1, region.y))
+                await pilot.pause()
+
+            await scroll(events.MouseScrollUp)
+            assert mixer.tracks[0].volume == 1.0, "clamped at 1"
+            await scroll(events.MouseScrollDown, 3)
+            assert abs(mixer.tracks[0].volume - 0.94) < 1e-6
+
+            await pilot.press("q")
+            await scroll(events.MouseScrollDown)
+            assert abs(mixer.tracks[1].volume - 0.98) < 1e-6
+            assert abs(mixer.tracks[0].volume - 0.94) < 1e-6, "other songs untouched"
+
+            await scroll(events.MouseScrollLeft, 100)
+            assert mixer.tracks[1].volume == 0.0, "clamped at 0"
+            await scroll(events.MouseScrollRight)
+            assert abs(mixer.tracks[1].volume - 0.02) < 1e-6
+
+            await pilot.press("a")
+            await scroll(events.MouseScrollDown)
+            assert mixer.tracks[2] is None, "empty slot ignored"
+
+            await pilot.press("tab")
+            await pilot.press("q")
+            assert app.selected == 5
+            await scroll(events.MouseScrollDown, 2)
+            assert abs(mixer.tracks[5].volume - 0.96) < 1e-6
+
+
 if __name__ == "__main__":
     asyncio.run(run())
+    asyncio.run(run_scroll())
     print("app tests passed")

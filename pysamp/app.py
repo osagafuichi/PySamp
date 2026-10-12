@@ -1,7 +1,8 @@
 from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.events import Key
+from textual.css.query import NoMatches
+from textual.events import Key, MouseScrollDown, MouseScrollLeft, MouseScrollRight, MouseScrollUp
 from textual.widgets import Static
 
 from pysamp.cuestore import save_cues
@@ -18,12 +19,13 @@ from pysamp.engine import (
 ROW_KEYS = ["1234567890", "qwertyuiop", "asdfghjkl;", "zxcvbnm,./"]
 KEY_TO_SLOT = {ch: (row, col) for row, keys in enumerate(ROW_KEYS) for col, ch in enumerate(keys)}
 VOLUME_STEP = 0.05
+SCROLL_STEP = 0.02
 BAR_WIDTH = 40
 HELP = {
-    "edit": "1/q/a/z: select song | space: play/pause | m: mark cue | left/right: seek 5s | "
+    "edit": "1/q/a/z: select song | scroll: volume | space: play/pause | m: mark cue | left/right: seek 5s | "
     "backspace: delete last cue | tab: bank | `: page | enter: play mode | ctrl+q: quit",
-    "play": "1/q/a/z: select song | other row keys: trigger cue | left/right: volume | space: stop all | "
-    "tab: bank | `: page | enter: edit mode | ctrl+q: quit",
+    "play": "1/q/a/z: select song | scroll: volume | other row keys: trigger cue | left/right: volume | "
+    "space: stop all | tab: bank | `: page | enter: edit mode | ctrl+q: quit",
 }
 
 
@@ -33,7 +35,7 @@ def fmt_time(samples: int) -> str:
 
 
 class SamplerApp(App):
-    CSS = "Static { height: auto; margin: 1 2 0 2; }"
+    CSS = "Screen { overflow: hidden; } Static { height: auto; margin: 1 2 0 2; }"
     BINDINGS = [Binding("tab", "toggle_bank", "Bank", show=False, priority=True)]
 
     def __init__(self, mixer: Mixer):
@@ -81,6 +83,28 @@ class SamplerApp(App):
             return
         event.stop()
         self.refresh_view()
+
+    def nudge_volume(self, direction: int) -> None:
+        track = self.mixer.tracks[self.selected]
+        if track is not None:
+            self.mixer.set_volume(self.selected, track.volume + direction * SCROLL_STEP)
+            self.refresh_view()
+
+    def on_mouse_scroll_up(self, event: MouseScrollUp) -> None:
+        self.nudge_volume(1)
+        event.stop()
+
+    def on_mouse_scroll_right(self, event: MouseScrollRight) -> None:
+        self.nudge_volume(1)
+        event.stop()
+
+    def on_mouse_scroll_down(self, event: MouseScrollDown) -> None:
+        self.nudge_volume(-1)
+        event.stop()
+
+    def on_mouse_scroll_left(self, event: MouseScrollLeft) -> None:
+        self.nudge_volume(-1)
+        event.stop()
 
     def handle_edit_key(self, event: Key) -> bool:
         track = self.mixer.tracks[self.selected]
@@ -138,7 +162,10 @@ class SamplerApp(App):
             f"{self.mode.upper()} MODE  |  bank {'AB'[self.bank]}: songs {first}-{first + NUM_ROWS - 1}"
             f"  |  page {self.page + 1}: cues {cue_first}-{cue_first + CUES_PER_PAGE - 1}"
         )
-        self.query_one("#header", Static).update(Text(header, style="bold"))
+        try:
+            self.query_one("#header", Static).update(Text(header, style="bold"))
+        except NoMatches:
+            return
         for row in range(NUM_ROWS):
             self.query_one(f"#row{row}", Static).update(self.render_row(row))
         self.query_one("#status", Static).update(self.status)
