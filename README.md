@@ -158,9 +158,17 @@ Turn **Caps Lock on** and the 40 keys from `1` to `/` become drum pads. A grid o
 - Holding a key does not repeat the hit. Up to 32 drum sounds can ring at once.
 - Drums are not affected by song volume, and `Space` (stop all) in Play mode does not stop them.
 
+### Record
+
+Press `\` (backslash, above `Enter`) or click **Record** in the top bar to start recording. The button turns red and shows the time. Do your performance: cues, volume, pitch, drums. Press `\` again (or click the button) to stop and save.
+
+- It records the **mix that PySamp plays**: all songs and drums, with your volume and pitch changes, as you hear them. It starts from the moment you press record and includes silent gaps. It does not record other apps or your microphone.
+- The file is a WAV (16-bit, 44.1 kHz, stereo, about 10 MB per minute) in `~/PySamp/recordings` (Windows: `C:\Users\<you>\PySamp\recordings`), named like `PySamp-20261012-230038.wav`. The status line shows the full path when you stop. A new take never overwrites an old one.
+- `\` works in both modes and while Caps Lock is on. If you quit while recording, the take is saved.
+
 ## The screen
 
-- **Top bar:** the mode, bank, and page buttons (the active ones are teal) and **Quit**.
+- **Top bar:** the mode, bank, and page buttons (the active ones are teal), **Record** (red while recording) and **Quit**.
 - **One panel per song** in the current bank:
   - The badge on the left is the selector key. The title line shows the song number and name.
   - On the right: current time / length, how many cues are set (`5/18`), and `playing` or `stopped`.
@@ -185,7 +193,8 @@ Click **Quit** in the page, or press `Ctrl+C` in the console window. Closing the
 - Sound at high pitch settings may be a little rough (simple resampling).
 - Volume is per song only. The master level is your system volume.
 - Many keyboards cannot read more than about 6 keys at once.
-- The drum sounds are simple synthesized ones, and there is no drum volume, pitch, or recording yet. A drum hit goes through the browser and the program, so it can be a few milliseconds slower than a real drum pad.
+- The drum sounds are simple synthesized ones, and there is no drum volume or pitch yet. A drum hit goes through the browser and the program, so it can be a few milliseconds slower than a real drum pad.
+- Recording saves the final audio only. It does not save your key presses, so you cannot replay or edit a performance. There is no pause, and no trimming of the silence at the start.
 - The page reads the Caps Lock state from key presses and mouse moves. If the grid does not appear right after you press Caps Lock, press any key or move the mouse.
 
 ## Troubleshooting
@@ -249,6 +258,7 @@ For the DJ test, please answer:
 7. Is there delay between key press and sound? Is it worse for the drum kit (Caps Lock)?
    Do the drums sound good enough? Which pads or sounds are missing? Is the layout easy to learn?
    Is it right that a cue key stops the other songs unless you hold `Shift`?
+   Recording saves the audio you hear. Is that what you want, or do you want it to save your key presses so you can replay and edit them?
 8. Did the install work first try? Where did you get stuck?
 9. Any crashes? Send the text from the console window and the link you used.
 
