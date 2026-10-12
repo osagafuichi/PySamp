@@ -14,7 +14,7 @@ async def run() -> None:
         wav = Path(d) / "ramp.wav"
         make_ramp_wav(wav, seconds=60)
         mixer = Mixer()
-        for song in (0, 1, 4):
+        for song in (0, 1, 4, 5):
             mixer.set_track(song, load_track(wav, f"song {song + 1}"))
 
         app = SamplerApp(mixer)
@@ -34,15 +34,24 @@ async def run() -> None:
             await pilot.press("space")
             assert not mixer.tracks[0].playing
 
-            # Tab moves to bank B (songs 5-8) and selects song 5.
+            # Selector keys pick a song in the current bank without playing it.
+            await pilot.press("q")
+            assert app.selected == 1 and not mixer.tracks[1].playing
+            await pilot.press("1")
+            assert app.selected == 0
+
+            # Tab moves to bank B (songs 5-8) and selects song 5; selectors follow the bank.
             await pilot.press("tab")
             assert app.bank == 1 and app.selected == 4
+            await pilot.press("q")
+            assert app.selected == 5
+            await pilot.press("1")
             await pilot.press("right")
             await pilot.press("right")
             await pilot.press("m")
             assert mixer.tracks[4].cues[0] == 10 * SAMPLE_RATE
 
-            # Backtick moves to page 2, and marks fill from slot 0 until slots run out.
+            # Backtick moves to page 2.
             await pilot.press("grave_accent")
             assert app.page == 1
 
@@ -56,35 +65,44 @@ async def run() -> None:
             await pilot.press("backspace")
             assert mixer.tracks[4].cues[0] is None
 
-            # Play mode: row keys trigger bank/page-aware cues.
+            # Play mode: cue keys trigger bank/page-aware cues.
             await pilot.press("enter")
             assert app.mode == "play"
             await pilot.press("tab")
             assert app.bank == 0
             await pilot.press("grave_accent")
             assert app.page == 0
-            await pilot.press("2")
+            await pilot.press("3")
             assert mixer.tracks[0].playing and mixer.tracks[0].active_cue == 1
             assert mixer.tracks[0].pos == 5 * SAMPLE_RATE
 
-            # Unset cue and empty song do nothing.
-            await pilot.press("3")
+            # Unset cue does nothing, selector keys never play, empty cue on another song does nothing.
+            await pilot.press("4")
             assert mixer.tracks[0].active_cue == 1
-            await pilot.press("q", "w")
+            await pilot.press("q")
+            assert app.selected == 1 and not mixer.tracks[1].playing
+            await pilot.press("e")
             assert not mixer.tracks[1].playing
 
-            # Page 2 maps to cues 11-20 (all unset here), so triggers do nothing.
+            # Cue 9 is the last key of page 1 (0); cue 10 is the first key of page 2 (2).
             mixer.stop_all()
-            await pilot.press("grave_accent")
+            mixer.tracks[0].cues[8] = 7 * SAMPLE_RATE
+            mixer.tracks[0].cues[9] = 9 * SAMPLE_RATE
             await pilot.press("1")
-            assert not mixer.tracks[0].playing
+            await pilot.press("0")
+            assert mixer.tracks[0].active_cue == 8 and mixer.tracks[0].pos == 7 * SAMPLE_RATE
+            await pilot.press("grave_accent")
+            await pilot.press("2")
+            assert mixer.tracks[0].active_cue == 9 and mixer.tracks[0].pos == 9 * SAMPLE_RATE
 
-            # Volume in play mode.
+            # Volume in play mode applies to the selected song.
+            mixer.stop_all()
+            await pilot.press("1")
             await pilot.press("left")
             assert abs(mixer.tracks[0].volume - 0.95) < 1e-6
 
             await pilot.press("grave_accent")
-            await pilot.press("1")
+            await pilot.press("2")
             assert mixer.tracks[0].playing
             await pilot.press("space")
             assert not mixer.tracks[0].playing

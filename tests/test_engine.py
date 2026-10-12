@@ -76,7 +76,8 @@ def test_toggle_seek_and_cue_limits():
 
         for expected in range(NUM_CUES):
             assert mixer.mark_cue(3) == expected
-        assert mixer.mark_cue(3) is None, "full at 20 cues"
+        assert NUM_CUES == 18
+        assert mixer.mark_cue(3) is None, "full at 18 cues"
 
         assert mixer.remove_last_cue(3)
         assert track.cues[NUM_CUES - 1] is None and track.cues[NUM_CUES - 2] is not None
@@ -107,7 +108,7 @@ def test_cue_store_roundtrip():
         cue_dir = Path(d)
         assert load_cues("abc", cue_dir) == [None] * NUM_CUES, "missing file gives empty cues"
         cues = [None] * NUM_CUES
-        cues[0], cues[7], cues[19] = 100, 5000, 123456
+        cues[0], cues[7], cues[NUM_CUES - 1] = 100, 5000, 123456
         save_cues("abc", cues, cue_dir)
         assert load_cues("abc", cue_dir) == cues
         (cue_dir / "bad.json").write_text("not json")

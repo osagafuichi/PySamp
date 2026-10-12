@@ -20,9 +20,9 @@ KEY_TO_SLOT = {ch: (row, col) for row, keys in enumerate(ROW_KEYS) for col, ch i
 VOLUME_STEP = 0.05
 BAR_WIDTH = 40
 HELP = {
-    "edit": "space: play/pause | m: mark cue | left/right: seek 5s | backspace: delete last cue | "
-    "up/down: song | tab: bank | `: page | enter: play mode | ctrl+q: quit",
-    "play": "row keys: trigger cue | up/down: song | left/right: volume | space: stop all | "
+    "edit": "1/q/a/z: select song | space: play/pause | m: mark cue | left/right: seek 5s | "
+    "backspace: delete last cue | tab: bank | `: page | enter: play mode | ctrl+q: quit",
+    "play": "1/q/a/z: select song | other row keys: trigger cue | left/right: volume | space: stop all | "
     "tab: bank | `: page | enter: edit mode | ctrl+q: quit",
 }
 
@@ -98,8 +98,9 @@ class SamplerApp(App):
                 self.status = "All 20 cues used. Press backspace to delete the last one."
             else:
                 save_cues(track.track_id, track.cues)
+                key = ROW_KEYS[self.selected % NUM_ROWS][slot % CUES_PER_PAGE + 1]
                 self.status = (
-                    f"Marked cue {slot % CUES_PER_PAGE + 1} (page {slot // CUES_PER_PAGE + 1}) at {fmt_time(pos)}."
+                    f"Marked cue {slot + 1} at {fmt_time(pos)}: key {key.upper()}, page {slot // CUES_PER_PAGE + 1}."
                 )
         elif event.key == "backspace":
             if track is not None and self.mixer.remove_last_cue(self.selected):
@@ -125,7 +126,8 @@ class SamplerApp(App):
             return False
         row, col = KEY_TO_SLOT[char]
         song = self.bank * NUM_ROWS + row
-        self.mixer.trigger(song, self.page * CUES_PER_PAGE + col)
+        if col > 0:
+            self.mixer.trigger(song, self.page * CUES_PER_PAGE + col - 1)
         self.selected = song
         return True
 
@@ -145,7 +147,7 @@ class SamplerApp(App):
     def render_row(self, row: int) -> Text:
         song = self.bank * NUM_ROWS + row
         marker = ">" if song == self.selected else " "
-        label = f"{ROW_KEYS[row][0]}..{ROW_KEYS[row][-1]}"
+        label = f"{ROW_KEYS[row][0]} | {ROW_KEYS[row][1]}..{ROW_KEYS[row][-1]}"
         track = self.mixer.tracks[song]
         if track is None:
             return Text(f"{marker} {label}  (empty)")
@@ -161,7 +163,7 @@ class SamplerApp(App):
         if track.active_cue is None or track.active_cue // CUES_PER_PAGE != self.page:
             active = "-"
         else:
-            active = ROW_KEYS[row][track.active_cue % CUES_PER_PAGE]
+            active = ROW_KEYS[row][track.active_cue % CUES_PER_PAGE + 1]
         title = track.title[:28].ljust(28)
         return Text(
             f"{marker} {label}  {title}  vol [{volume}]  cues {used:>2}/20  last {active}"
