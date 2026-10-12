@@ -56,7 +56,9 @@ def test_all_browsers_fail_gives_clear_error() -> None:
         try:
             dl.download("u", Path(d))
         except RuntimeError as exc:
-            assert str(exc) == dl.BLOCKED_MESSAGE
+            lines = str(exc).splitlines()
+            assert lines[0] == dl.BLOCKED_MESSAGE
+            assert "  chrome: nope" in lines and "  brave: nope" in lines
         else:
             raise AssertionError("expected RuntimeError")
 

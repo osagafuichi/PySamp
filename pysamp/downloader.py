@@ -48,11 +48,14 @@ def download(url: str, dest_dir: Path) -> tuple[Path, str]:
     except yt_dlp.utils.DownloadError as exc:
         if BOT_CHECK not in str(exc):
             raise
+    failures = []
     for browser in [forced] if forced else [b for b in BROWSERS if b != first]:
         try:
             result = fetch(url, dest_dir, browser)
-        except Exception:
+        except Exception as exc:
+            lines = str(exc).strip().splitlines() or [type(exc).__name__]
+            failures.append(f"  {browser}: {lines[0][:150]}")
             continue
         working_browser = browser
         return result
-    raise RuntimeError(BLOCKED_MESSAGE)
+    raise RuntimeError("\n".join([BLOCKED_MESSAGE, "Tried:", *failures]))
