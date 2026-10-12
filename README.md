@@ -133,11 +133,30 @@ Both together give all 4 combinations:
 
 | Key | Action |
 |-----|--------|
-| Cue keys | Jump to that cue and play |
+| Cue keys | Jump to that cue and play. The other songs stop |
+| `Shift` + cue key | Jump to that cue and play. The other songs **keep playing** |
 | `Left` / `Right` | Volume down / up for the selected song (5% per press) |
 | `Space` | Stop all songs |
 
 Pressing a cue key also selects that song, so scrolling or `Left` / `Right` right after a trigger changes the volume of the song you just hit.
+
+A song that stops because you triggered another one keeps its place. Select it and press `Space` (Edit mode) to continue it. A cue key with no cue set does nothing, so it never stops anything. The same rule applies to cue keys in Edit mode and to clicking an orange cue flag (`Shift` + click keeps the others playing).
+
+### Caps Lock: drum kit
+
+Turn **Caps Lock on** and the 40 keys from `1` to `/` become drum pads. The song panels are replaced by a grid of keycaps that shows what each key plays, and a teal **DRUMS** tag appears in the top bar. The songs keep playing underneath. Turn Caps Lock off to go back to normal. `Tab`, `` ` ``, `Enter`, `Up` / `Down`, `Space` and the other non-letter keys keep their normal job. You can also click a pad.
+
+| Row | Keys | Pads |
+|-----|------|------|
+| Number row | `1 2 3 4 5 6 7 8 9 0` | Cowbell, Clave, Woodblock, Triangle, Tambourine, Conga High, Conga Low, Bongo, Maracas, Laser |
+| Top letter row | `Q W E R T Y U I O P` | Closed Hat, Tight Hat, Open Hat, Pedal Hat, Shaker, Ride, Ride Bell, Crash, Dark Crash, Splash |
+| Home row | `A S D F G H J K L ;` | Snare, Boom Snare, House Snare, Clap, House Clap, Rimshot, Side Stick, Snap, Ghost Snare, Gated Snare |
+| Bottom row | `Z X C V B N M , . /` | 808 Kick, Boom Kick, House Kick, Punch Kick, Tight Kick, Floor Tom, Low Tom, Mid Tom, High Tom, Electro Tom |
+
+- The sounds are made by the program itself (hip-hop, house and classic kit sounds mixed). There are no sample files.
+- The four hats cut each other off, so a closed hat ends an open hat.
+- Holding a key does not repeat the hit. Up to 32 drum sounds can ring at once.
+- Drums are not affected by song volume, and `Space` (stop all) in Play mode does not stop them.
 
 ## The screen
 
@@ -166,6 +185,8 @@ Click **Quit** in the page, or press `Ctrl+C` in the console window. Closing the
 - Sound at high pitch settings may be a little rough (simple resampling).
 - Volume is per song only. The master level is your system volume.
 - Many keyboards cannot read more than about 6 keys at once.
+- The drum sounds are simple synthesized ones, and there is no drum volume, pitch, or recording yet. A drum hit goes through the browser and the program, so it can be a few milliseconds slower than a real drum pad.
+- The page reads the Caps Lock state from key presses and mouse moves. If the grid does not appear right after you press Caps Lock, press any key or move the mouse.
 
 ## Troubleshooting
 
@@ -225,7 +246,9 @@ For the DJ test, please answer:
 5. Does scroll-for-volume feel good (step size, trackpad momentum, direction)?
 6. What is missing to use it live? (loop, tempo match, key-lock, EQ, mute/solo, crossfade, hold-to-play, master volume, removing a song)
    Does pitch feel right (step size, range)? Do you need pitch to change tempo only, without changing the key (key-lock)?
-7. Is there delay between key press and sound?
+7. Is there delay between key press and sound? Is it worse for the drum kit (Caps Lock)?
+   Do the drums sound good enough? Which pads or sounds are missing? Is the layout easy to learn?
+   Is it right that a cue key stops the other songs unless you hold `Shift`?
 8. Did the install work first try? Where did you get stuck?
 9. Any crashes? Send the text from the console window and the link you used.
 
