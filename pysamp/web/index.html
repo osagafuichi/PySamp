@@ -34,6 +34,18 @@
   input { flex:1; background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:5px 8px; font:inherit; user-select:text; }
   #status { margin-top:12px; min-height:20px; }
   #help { color:var(--dim); margin-top:6px; font-size:12px; }
+  #drumtag { background:var(--accent); color:#06201e; border-radius:6px; padding:3px 10px; font-weight:700; letter-spacing:.08em; }
+  #drums { flex:1; display:none; flex-direction:column; gap:8px; margin-bottom:10px; }
+  .drumrow { flex:1 1 0; display:flex; gap:8px; min-height:80px; }
+  .drumrow:nth-child(2) { padding-left:4%; }
+  .drumrow:nth-child(3) { padding-left:7%; }
+  .drumrow:nth-child(4) { padding-left:11%; }
+  .pad { flex:1 1 0; min-width:0; background:var(--panel); border:2px solid var(--line); border-radius:10px; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:4px; text-align:center; }
+  .pad b { font-size:22px; color:var(--accent); }
+  .pad span { font-size:12px; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
+  .pad.hit { background:var(--accent); border-color:var(--accent); }
+  .pad.hit b, .pad.hit span { color:#06201e; }
   #offline { display:none; background:#742a2a; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
 </style>
 </head>
@@ -42,6 +54,7 @@
   <div id="offline">PySamp is not running. Close this tab, or start PySamp again.</div>
   <div class="bar">
     <button id="mode"></button>
+    <span id="drumtag" hidden>DRUMS</span>
     <button id="bank0">Bank A: songs 1-4</button>
     <button id="bank1">Bank B: songs 5-8</button>
     <button id="page0">Page 1: cues 1-9</button>
@@ -50,6 +63,7 @@
     <button id="quit">Quit</button>
   </div>
   <div id="strips"></div>
+  <div id="drums"></div>
   <div id="status"></div>
   <div id="help"></div>
 </main>
@@ -68,18 +82,19 @@ const ROWS = 4, SONGS = 8, PER_PAGE = 9, NUM_CUES = 18, SEEK = 5, KEY_STEP = 0.0
 const PITCH_MIN = 0.5, PITCH_MAX = 2, PITCH_GAIN = 0.0001;
 const HELP = {
   edit: "Edit mode: 1/Q/A/Z select a song | Space play/pause | M mark cue | Left/Right seek 5s | hold a cue key + Backspace delete that cue | Backspace alone delete last cue | " +
-    "drag waveform to seek | Tab bank | ` page | Enter play mode | scroll = volume | right-click or Option + scroll = pitch",
+    "drag waveform to seek | Tab bank | ` page | Enter play mode | scroll = volume | right-click or Option + scroll = pitch | Caps Lock = drum kit",
   play: "Play mode: 1/Q/A/Z select a song | other row keys trigger cues (other songs stop; hold Shift to keep them playing) | Left/Right volume | Space stop all | " +
-    "Tab bank | ` page | Enter edit mode | scroll = volume | right-click or Option + scroll = pitch",
+    "Tab bank | ` page | Enter edit mode | scroll = volume | right-click or Option + scroll = pitch | Caps Lock = drum kit",
 };
 
+const DRUM_HELP = "Drum kit (Caps Lock is on): every key from 1 to / plays a drum, songs keep playing | Tab bank | ` page | Enter mode | turn Caps Lock off to go back";
 let S = null;
 let offline = false;
 let vol = { song: -1, value: 0, until: 0 };
 let pitch = { song: -1, value: 1, until: 0 };
 let drag = null;
 const held = new Map();
-const ui = { mode: "edit", bank: 0, page: 0, selected: 0 };
+const ui = { mode: "edit", bank: 0, page: 0, selected: 0, caps: false };
 const peaks = {};
 const $ = (id) => document.getElementById(id);
 const songOf = (row) => ui.bank * ROWS + row;
@@ -166,6 +181,34 @@ for (let row = 0; row < ROWS; row++) {
   el.querySelector("button").addEventListener("click", load);
   s.input.addEventListener("keydown", (e) => { if (e.key === "Enter") load(); });
   strips.push(s);
+}
+
+const pads = [];
+let padsNamed = false;
+ROW_KEYS.forEach((keys, row) => {
+  const line = document.createElement("div");
+  line.className = "drumrow";
+  [...keys].forEach((key, col) => {
+    const el = document.createElement("div");
+    el.className = "pad";
+    el.innerHTML = "<b>" + key.toUpperCase() + "</b><span></span>";
+    el.addEventListener("pointerdown", () => hitPad(row * 10 + col));
+    el.addEventListener("pointerup", () => el.classList.remove("hit"));
+    el.addEventListener("pointerleave", () => el.classList.remove("hit"));
+    line.append(el);
+    pads.push(el);
+  });
+  $("drums").append(line);
+});
+
+function hitPad(pad) {
+  pads[pad].classList.add("hit");
+  send({ action: "drum", pad });
+}
+
+function releasePad(code) {
+  const slot = CODE_TO_SLOT[code];
+  if (slot) pads[slot[0] * 10 + slot[1]].classList.remove("hit");
 }
 
 function waveFraction(s, e) {
@@ -299,14 +342,21 @@ function render() {
     $("bank" + i).classList.toggle("on", ui.bank === i);
     $("page" + i).classList.toggle("on", ui.page === i);
   }
-  $("help").textContent = HELP[ui.mode];
+  $("help").textContent = ui.caps ? DRUM_HELP : HELP[ui.mode];
+  $("drumtag").hidden = !ui.caps;
+  $("strips").style.display = ui.caps ? "none" : "";
+  $("drums").style.display = ui.caps ? "flex" : "none";
   $("offline").style.display = offline ? "block" : "none";
   if (S) {
     $("status").textContent = S.status;
     S.songs.forEach((d, i) => {
       if (d.loaded && (!peaks[i] || peaks[i].id !== d.id)) fetchPeaks(i, d.id);
     });
-    strips.forEach(drawStrip);
+    if (!padsNamed) {
+      pads.forEach((el, i) => { el.querySelector("span").textContent = S.drum_names[i]; });
+      padsNamed = true;
+    }
+    if (!ui.caps) strips.forEach(drawStrip);
   }
 }
 
@@ -346,12 +396,18 @@ function rowKey(code, row, col, layer) {
 }
 
 document.addEventListener("keydown", (e) => {
+  ui.caps = e.getModifierState("CapsLock");
   if (e.target.tagName === "INPUT") {
     if (e.code === "Escape") e.target.blur();
     return;
   }
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const code = e.code, song = ui.selected;
+  if (ui.caps && code in CODE_TO_SLOT) {
+    e.preventDefault();
+    if (!e.repeat) hitPad(CODE_TO_SLOT[code][0] * 10 + CODE_TO_SLOT[code][1]);
+    return;
+  }
   const known = ["Tab", "Space", "Enter", "Backspace", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Backquote"];
   if (!known.includes(code) && !(code in CODE_TO_SLOT)) return;
   e.preventDefault();
@@ -368,8 +424,13 @@ document.addEventListener("keydown", (e) => {
   else if (code in CODE_TO_SLOT) rowKey(code, ...CODE_TO_SLOT[code], e.shiftKey);
 });
 
-document.addEventListener("keyup", (e) => held.delete(e.code));
-window.addEventListener("blur", () => held.clear());
+document.addEventListener("keyup", (e) => {
+  ui.caps = e.getModifierState("CapsLock");
+  held.delete(e.code);
+  releasePad(e.code);
+});
+document.addEventListener("pointermove", (e) => { ui.caps = e.getModifierState("CapsLock"); });
+window.addEventListener("blur", () => { held.clear(); pads.forEach((el) => el.classList.remove("hit")); });
 
 function wheelAmount(delta, mode) {
   return mode === 1 ? delta * 33 : mode === 2 ? delta * 400 : delta;
