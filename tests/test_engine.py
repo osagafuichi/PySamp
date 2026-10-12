@@ -5,7 +5,7 @@ import numpy as np
 import soundfile as sf
 
 from pysamp.cuestore import load_cues, save_cues
-from pysamp.engine import NUM_CUES, SAMPLE_RATE, Mixer, load_track
+from pysamp.engine import MAX_VOICES, NUM_CUES, NUM_PADS, SAMPLE_RATE, Mixer, load_track
 
 FRAMES = 256
 
@@ -225,6 +225,67 @@ def test_trigger_stops_other_songs_unless_layered():
         assert mixer.tracks[1].playing, "re-trigger on the same song keeps it playing"
 
 
+def test_drum_hits():
+    from pysamp import drums
+
+    kit = drums.pads()
+    assert len(kit) == NUM_PADS
+
+    mixer = Mixer()
+    assert not pull(mixer).any()
+    mixer.hit(30)
+    out = pull(mixer)
+    np.testing.assert_allclose(out, kit[30][0][:FRAMES])
+    np.testing.assert_allclose(pull(mixer), kit[30][0][FRAMES : 2 * FRAMES])
+
+    mixer = Mixer()
+    mixer.hit(NUM_PADS)
+    mixer.hit(-1)
+    assert not pull(mixer).any() and not mixer._voices, "bad pads are ignored"
+
+    mixer.hit(30)
+    for _ in range(len(kit[30][0]) // FRAMES + 2):
+        pull(mixer)
+    assert not mixer._voices, "finished voices are dropped"
+    assert not pull(mixer).any()
+
+    names = drums.NAMES
+    open_hat, closed_hat, snare = names.index("Open Hat"), names.index("Closed Hat"), names.index("Snare")
+    mixer.hit(open_hat)
+    mixer.hit(snare)
+    mixer.hit(closed_hat)
+    kept = [v[0] for v in mixer._voices]
+    assert len(kept) == 2 and kept[0] is kit[snare][0] and kept[1] is kit[closed_hat][0], "closed hat cuts the open hat"
+
+    mixer = Mixer()
+    for _ in range(MAX_VOICES + 10):
+        mixer.hit(names.index("808 Kick"))
+    assert len(mixer._voices) == MAX_VOICES
+    out = pull(mixer)
+    assert out.max() <= 1.0 and out.min() >= -1.0, "stacked drums are clipped"
+
+
+def test_drums_play_over_songs():
+    with tempfile.TemporaryDirectory() as d:
+        wav = Path(d) / "ramp.wav"
+        make_ramp_wav(wav)
+        mixer = Mixer()
+        track = load_track(wav)
+        mixer.set_track(0, track)
+        mixer.seek(0, 1)
+        mixer.mark_cue(0)
+        mixer.trigger(0, 0)
+        mixer.hit(0)
+        from pysamp import drums
+
+        expected = track.data[SAMPLE_RATE : SAMPLE_RATE + FRAMES] + drums.pads()[0][0][:FRAMES]
+        np.testing.assert_allclose(pull(mixer), np.clip(expected, -1, 1), atol=1e-6)
+        mixer.trigger(0, 0)
+        mixer.stop_all()
+        mixer.hit(1)
+        assert pull(mixer).any(), "stop_all leaves drums alone"
+
+
 def test_cue_store_roundtrip():
     with tempfile.TemporaryDirectory() as d:
         cue_dir = Path(d)
@@ -244,5 +305,7 @@ if __name__ == "__main__":
     test_pitch()
     test_empty_row_and_clipping()
     test_trigger_stops_other_songs_unless_layered()
+    test_drum_hits()
+    test_drums_play_over_songs()
     test_cue_store_roundtrip()
     print("engine tests passed")

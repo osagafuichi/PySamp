@@ -9,6 +9,8 @@ SAMPLE_RATE = 44100
 NUM_ROWS = 4
 NUM_BANKS = 2
 NUM_SONGS = NUM_ROWS * NUM_BANKS
+NUM_PADS = 40
+MAX_VOICES = 32
 CUES_PER_PAGE = 9
 NUM_PAGES = 2
 NUM_CUES = CUES_PER_PAGE * NUM_PAGES
@@ -47,6 +49,7 @@ def load_track(path: Path, title: str | None = None, track_id: str | None = None
 class Mixer:
     def __init__(self):
         self.tracks: list[Track | None] = [None] * NUM_SONGS
+        self._voices: list[list] = []
         self._lock = threading.Lock()
         self._stream: sd.OutputStream | None = None
 
@@ -148,7 +151,22 @@ class Mixer:
                 if track is not None:
                     track.playing = False
 
+    def hit(self, pad: int) -> None:
+        from pysamp import drums
+
+        if not 0 <= pad < NUM_PADS:
+            return
+        data, group = drums.pads()[pad]
+        with self._lock:
+            if group:
+                self._voices[:] = [v for v in self._voices if v[2] != group]
+            self._voices.append([data, 0, group])
+            del self._voices[:-MAX_VOICES]
+
     def start(self) -> None:
+        from pysamp import drums
+
+        drums.pads()
         self._stream = sd.OutputStream(
             samplerate=SAMPLE_RATE, channels=2, dtype="float32", callback=self._callback
         )
@@ -186,4 +204,9 @@ class Mixer:
                 outdata[: len(chunk)] += chunk * track.volume
                 if track.pos >= len(track.data):
                     track.playing = False
+            for voice in self._voices:
+                chunk = voice[0][voice[1] : voice[1] + frames]
+                outdata[: len(chunk)] += chunk
+                voice[1] += len(chunk)
+            self._voices[:] = [v for v in self._voices if v[1] < len(v[0])]
         np.clip(outdata, -1.0, 1.0, out=outdata)
