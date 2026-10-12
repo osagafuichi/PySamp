@@ -119,6 +119,14 @@ def run() -> None:
         assert c.song(0)["volume"] == 0.0
         c.post({"action": "volume", "song": 0, "value": 0.5})
         assert c.song(0)["volume"] == 0.5
+        assert c.song(0)["pitch"] == 1.0
+        c.post({"action": "pitch", "song": 0, "value": 1.25})
+        assert c.song(0)["pitch"] == 1.25
+        c.post({"action": "pitch", "song": 0, "value": 9})
+        assert c.song(0)["pitch"] == 2.0
+        c.post({"action": "pitch", "song": 0, "value": 0})
+        assert c.song(0)["pitch"] == 0.5
+        c.post({"action": "pitch", "song": 0, "value": 1})
         c.post({"action": "toggle_play", "song": 0})
         assert not c.song(0)["playing"]
         c.post({"action": "remove_last_cue", "song": 0})
@@ -137,6 +145,8 @@ def run() -> None:
         # Bad commands give 400.
         assert status_of(lambda: c.post({"action": "nope", "song": 0})) == 400
         assert status_of(lambda: c.post({"action": "mark", "song": 99})) == 400
+        assert status_of(lambda: c.post({"action": "pitch", "song": 0, "value": "fast"})) == 400
+        assert status_of(lambda: c.post({"action": "pitch", "song": 0})) == 400
         assert status_of(lambda: c.post({"action": "trigger", "song": 0})) == 400
         assert status_of(lambda: c.post([1, 2])) == 400
 

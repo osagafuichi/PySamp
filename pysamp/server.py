@@ -52,6 +52,7 @@ class SamplerServer(ThreadingHTTPServer):
                     "total": len(track.data),
                     "playing": track.playing,
                     "volume": track.volume,
+                    "pitch": track.rate,
                     "active_cue": track.active_cue,
                     "cues": list(track.cues),
                 }
@@ -94,6 +95,8 @@ class SamplerServer(ThreadingHTTPServer):
             mixer.seek_to(song, float(cmd["fraction"]))
         elif action == "volume":
             mixer.set_volume(song, float(cmd["value"]))
+        elif action == "pitch":
+            mixer.set_pitch(song, float(cmd["value"]))
         elif action == "mark":
             self.mark(song)
         elif action == "remove_last_cue":
