@@ -1,4 +1,4 @@
-# PySamp (test version 0.2)
+# PySamp (test version 0.3)
 
 A terminal sampler/mixer. You load up to 8 songs. Each row of your computer keyboard is one song. You mark your own cue points in each song. Then each key in the row jumps to one of your cue points and plays from there.
 
@@ -52,12 +52,12 @@ Downloads are saved in `~/PySamp/downloads` (Windows: `C:\Users\<you>\PySamp\dow
 
 PySamp starts in **Edit mode**.
 
-1. Pick a song with `Up` / `Down`.
+1. Pick a song with its selector key (`1`, `Q`, `A`, or `Z`), or with `Up` / `Down`.
 2. Press `Space` to play. Press `Space` again to pause.
 3. Press `m` at each moment you want a cue (a drop, a beat, a vocal).
 4. Use `Left` / `Right` to jump back or ahead 5 seconds if you missed it.
 
-Cues fill the keys in order: the first `m` is key 1, the second is key 2, and so on up to key 0 (the 10th). The 11th to 20th go on **page 2** (see below). Each song holds up to 20 cues.
+Cues fill the cue keys of the song's row in order. On row 1 the first `m` is key `2`, the second is `3`, and so on up to `0` (the 9th). The 10th to 18th go on **page 2** (see below). Each song holds up to 18 cues. The status line under the songs tells you which key each new cue landed on.
 
 Your cues are saved automatically in `~/PySamp/cues`. Next time you load the same song, they are back.
 
@@ -65,27 +65,38 @@ Made a mistake? `Backspace` deletes the last cue.
 
 ### Step 3: perform (Play mode)
 
-Press `Enter` to switch to **Play mode**. Now each key in the row jumps to a cue and plays. Press `Enter` again to go back to Edit mode.
+Press `Enter` to switch to **Play mode**. Now each cue key in a row jumps to a cue and plays. Press `Enter` again to go back to Edit mode.
 
 ## Controls
 
 ### Row keys
 
-Each row is one song. Each key in the row is one cue (left to right).
+Each row is one song. The **first key** of the row selects that song. The other **nine keys** are its cues (left to right).
 
-| Row | Keys | Song in bank A | Song in bank B |
-|-----|------|----------------|----------------|
-| 1 (number row) | `1 2 3 4 5 6 7 8 9 0` | Song 1 | Song 5 |
-| 2 | `Q W E R T Y U I O P` | Song 2 | Song 6 |
-| 3 | `A S D F G H J K L ;` | Song 3 | Song 7 |
-| 4 | `Z X C V B N M , . /` | Song 4 | Song 8 |
+| Row | Select song | Cue keys (cues 1-9 on page 1) | Song in bank A | Song in bank B |
+|-----|-------------|-------------------------------|----------------|----------------|
+| 1 (number row) | `1` | `2 3 4 5 6 7 8 9 0` | Song 1 | Song 5 |
+| 2 | `Q` | `W E R T Y U I O P` | Song 2 | Song 6 |
+| 3 | `A` | `S D F G H J K L ;` | Song 3 | Song 7 |
+| 4 | `Z` | `X C V B N M , . /` | Song 4 | Song 8 |
+
+A selector key only selects. It never plays. The selected song is marked `>` on screen and is the one the scroll wheel controls.
+
+### Scroll wheel / trackpad = volume
+
+Scroll anywhere in the window to change the volume of the **selected song**. You do not need to hover over it. Each scroll tick moves the volume 2%.
+
+- Mouse wheel and two-finger trackpad scrolling both work.
+- The direction follows your system "natural scrolling" setting. If it feels backwards, flip that setting.
+- A fast trackpad flick keeps scrolling for a moment (momentum), so use small movements for fine control.
+- It works in both modes.
 
 ### Bank and page keys (work in both modes)
 
 | Key | Action |
 |-----|--------|
 | `Tab` | Switch bank: songs 1-4 (A) or songs 5-8 (B) |
-| `` ` `` (backtick, left of `1`) | Switch cue page: cues 1-10 (page 1) or cues 11-20 (page 2) |
+| `` ` `` (backtick, left of `1`) | Switch cue page: cues 1-9 (page 1) or cues 10-18 (page 2) |
 | `Up` / `Down` | Select the previous / next song (moves between banks) |
 | `Enter` | Switch between Edit mode and Play mode |
 | `Ctrl+Q` | Quit |
@@ -94,10 +105,10 @@ Both together give all 4 combinations:
 
 | Bank | Page | Songs | Cues |
 |------|------|-------|------|
-| A | 1 | 1-4 | 1-10 |
-| A | 2 | 1-4 | 11-20 |
-| B | 1 | 5-8 | 1-10 |
-| B | 2 | 5-8 | 11-20 |
+| A | 1 | 1-4 | 1-9 |
+| A | 2 | 1-4 | 10-18 |
+| B | 1 | 5-8 | 1-9 |
+| B | 2 | 5-8 | 10-18 |
 
 The top line of the screen always shows the active mode, bank, and page.
 
@@ -109,31 +120,31 @@ The top line of the screen always shows the active mode, bank, and page.
 | `m` | Mark a cue at the current position |
 | `Left` / `Right` | Jump back / ahead 5 seconds |
 | `Backspace` | Delete the last cue |
-| Row keys | Audition a saved cue (except `m`, which marks) |
+| Cue keys | Audition a saved cue (except `m`, which marks) |
 
 ### Play mode keys
 
 | Key | Action |
 |-----|--------|
-| Row keys | Jump to that cue and play |
+| Cue keys | Jump to that cue and play |
 | `Left` / `Right` | Volume down / up for the selected song (5% per press) |
 | `Space` | Stop all songs |
 
-Pressing a row key also selects that song, so `Left` / `Right` right after a trigger changes the volume of the song you just hit.
+Pressing a cue key also selects that song, so scrolling or `Left` / `Right` right after a trigger changes the volume of the song you just hit.
 
 ## The screen
 
 ```
-PLAY MODE  |  bank A: songs 1-4  |  page 1: cues 1-10
->  1..0  Song title here      vol [##########]  cues  4/20  last 3  1:12/3:45
+PLAY MODE  |  bank A: songs 1-4  |  page 1: cues 1-9
+>  1 | 2..0  Song title here      vol [##########]  cues  4/18  last 3  1:12/3:45
     |....:...|.....>.........|.........|......
-   q..p  (empty)
+   q | w..p  (empty)
 ```
 
 - `>` at the far left marks the selected song.
-- `1..0` is the key range of that row.
-- `cues 4/20` is how many cues the song has.
-- `last 3` is the last key you triggered on the current page.
+- `1 | 2..0` is the selector key, then the range of cue keys, for that row.
+- `cues 4/18` is how many cues the song has.
+- `last 3` is the last cue key you triggered on the current page.
 - The bar is the song. `|` is a cue on the current page. `:` is a cue on the other page. `>` is the playhead while playing. `o` is the playhead when stopped.
 
 ## Known limits
@@ -148,7 +159,8 @@ PLAY MODE  |  bank A: songs 1-4  |  page 1: cues 1-10
 
 ## Troubleshooting
 
-- **No sound:** check your system output device. Check that the volume of the song is above zero (`Right` raises it in Play mode). In Edit mode, press `Space` on the selected song.
+- **No sound:** check your system output device. Check that the volume of the song is above zero (scroll up raises it). In Edit mode, press `Space` on the selected song.
+- **Scroll does nothing:** your terminal may not pass mouse events. Terminal.app, iTerm2 and Windows Terminal do. Scroll with the pointer inside the PySamp window. Check the `>` marker: scroll changes the selected song only.
 - **Key does nothing:** that cue is not marked yet. Check the page (`` ` ``) and bank (`Tab`) in the top line.
 - **Download fails:** check the link opens in a browser. YouTube changes often, so a new download may fail until the app is updated. Songs already in the downloads folder still work.
 - **Mac says the app "cannot be opened":** run the `xattr` command in the Install section.
@@ -185,7 +197,7 @@ Run on the OS you want to package for:
 .venv/bin/python scripts/build.py
 ```
 
-The zip appears in `dist/`. The GitHub Actions workflow (`.github/workflows/build.yml`) builds both Mac and Windows packages when you push a tag like `v0.2.0`.
+The zip appears in `dist/`. The GitHub Actions workflow (`.github/workflows/build.yml`) builds both Mac and Windows packages when you push a tag like `v0.3.0`.
 
 ## Feedback wanted
 
@@ -193,7 +205,8 @@ For the DJ test, please answer:
 
 1. Is marking cues with `m` fast enough? Do you miss the beat? Would you want to nudge a cue after marking?
 2. Do `Tab` (bank) and `` ` `` (page) feel natural while playing? Would you prefer other keys?
-3. Is 20 cues per song enough? Is 8 songs enough?
+3. Is 18 cues per song enough? Is 8 songs enough? Is it a problem that the first key of each row is a selector and not a cue?
+   Does scroll-for-volume feel good (step size, trackpad momentum, direction)?
 4. Do you need cues sorted by time, or labeled?
 5. What is missing to use it live? (loop, tempo match, key-lock, EQ, mute/solo, crossfade, hold-to-play, master volume, loading songs without restarting)
 6. Is there delay between key press and sound?
