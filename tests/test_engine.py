@@ -190,9 +190,39 @@ def test_empty_row_and_clipping():
             mixer.set_track(song, load_track(wav))
             mixer.seek(song, 9)
             mixer.mark_cue(song)
-            mixer.trigger(song, 0)
+            mixer.trigger(song, 0, layer=True)
         out = pull(mixer)
         assert out.max() <= 1.0 and out.min() >= -1.0, "mixed output is clipped"
+
+
+def test_trigger_stops_other_songs_unless_layered():
+    with tempfile.TemporaryDirectory() as d:
+        wav = Path(d) / "ramp.wav"
+        make_ramp_wav(wav)
+        mixer = Mixer()
+        for song in (0, 1, 2):
+            mixer.set_track(song, load_track(wav))
+            mixer.seek(song, 1)
+            mixer.mark_cue(song)
+        mixer.tracks[2].cues[0] = None
+
+        mixer.trigger(0, 0)
+        mixer.trigger(1, 0, layer=True)
+        assert mixer.tracks[0].playing and mixer.tracks[1].playing, "Shift keeps both playing"
+
+        pos0 = mixer.tracks[0].pos
+        mixer.trigger(1, 0)
+        assert mixer.tracks[1].playing and not mixer.tracks[0].playing, "plain trigger stops the other"
+        assert mixer.tracks[0].pos == pos0, "stopped song keeps its position"
+
+        mixer.trigger(0, 0, layer=True)
+        mixer.trigger(2, 0)
+        assert mixer.tracks[0].playing and mixer.tracks[1].playing, "empty cue stops nothing"
+
+        mixer.trigger(1, 0)
+        assert mixer.tracks[1].playing and not mixer.tracks[0].playing
+        mixer.trigger(1, 0)
+        assert mixer.tracks[1].playing, "re-trigger on the same song keeps it playing"
 
 
 def test_cue_store_roundtrip():
@@ -213,5 +243,6 @@ if __name__ == "__main__":
     test_remove_cue_renumbers_by_position()
     test_pitch()
     test_empty_row_and_clipping()
+    test_trigger_stops_other_songs_unless_layered()
     test_cue_store_roundtrip()
     print("engine tests passed")

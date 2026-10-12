@@ -54,11 +54,15 @@ class Mixer:
         with self._lock:
             self.tracks[song] = track
 
-    def trigger(self, song: int, cue: int) -> None:
+    def trigger(self, song: int, cue: int, layer: bool = False) -> None:
         with self._lock:
             track = self.tracks[song]
             if track is None or cue >= len(track.cues) or track.cues[cue] is None:
                 return
+            if not layer:
+                for other in self.tracks:
+                    if other is not None and other is not track:
+                        other.playing = False
             track.pos = track.cues[cue]
             track.active_cue = cue
             track.playing = True
