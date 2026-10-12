@@ -9,6 +9,7 @@ from pysamp.cuestore import save_cues
 from pysamp.loader import load_source
 from pysamp.engine import (
     CUES_PER_PAGE,
+    NUM_CUES,
     NUM_PAGES,
     NUM_ROWS,
     NUM_SONGS,
@@ -177,7 +178,7 @@ class SamplerApp(App):
             pos = track.pos
             slot = self.mixer.mark_cue(self.selected)
             if slot is None:
-                self.status = "All 20 cues used. Press backspace to delete the last one."
+                self.status = f"All {NUM_CUES} cues used. Press backspace to delete the last one."
             else:
                 save_cues(track.track_id, track.cues)
                 key = ROW_KEYS[self.selected % NUM_ROWS][slot % CUES_PER_PAGE + 1]
@@ -251,6 +252,6 @@ class SamplerApp(App):
             active = ROW_KEYS[row][track.active_cue % CUES_PER_PAGE + 1]
         title = track.title[:28].ljust(28)
         return Text(
-            f"{marker} {label}  {title}  vol [{volume}]  cues {used:>2}/20  last {active}"
+            f"{marker} {label}  {title}  vol [{volume}]  cues {used:>2}/{NUM_CUES}  last {active}"
             f"  {fmt_time(track.pos)}/{fmt_time(total)}\n    {''.join(cells)}"
         )
