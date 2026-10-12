@@ -9,7 +9,8 @@ from urllib.parse import parse_qs, urlparse
 import numpy as np
 
 from pysamp.cuestore import save_cues
-from pysamp.engine import NUM_CUES, NUM_SONGS, SAMPLE_RATE, Mixer
+from pysamp.drums import NAMES
+from pysamp.engine import NUM_CUES, NUM_PADS, NUM_SONGS, SAMPLE_RATE, Mixer
 from pysamp.loader import load_source
 
 WEB_DIR = Path(__file__).parent / "web"
@@ -57,7 +58,7 @@ class SamplerServer(ThreadingHTTPServer):
                     "cues": list(track.cues),
                 }
             )
-        return {"rate": SAMPLE_RATE, "status": self.status, "songs": songs}
+        return {"rate": SAMPLE_RATE, "status": self.status, "songs": songs, "drum_names": NAMES}
 
     def peaks(self, song: int) -> dict | None:
         track = self.mixer.tracks[song]
@@ -80,6 +81,12 @@ class SamplerServer(ThreadingHTTPServer):
             return
         if action == "quit":
             self.quit_event.set()
+            return
+        if action == "drum":
+            pad = cmd["pad"]
+            if not isinstance(pad, int) or not 0 <= pad < NUM_PADS:
+                raise ValueError("bad pad")
+            self.mixer.hit(pad)
             return
         song = cmd["song"]
         if not isinstance(song, int) or not 0 <= song < NUM_SONGS:

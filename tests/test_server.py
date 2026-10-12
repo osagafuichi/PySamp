@@ -7,7 +7,7 @@ import urllib.request
 from pathlib import Path
 
 import pysamp.server as server_module
-from pysamp.engine import NUM_CUES, SAMPLE_RATE, Mixer, load_track
+from pysamp.engine import NUM_CUES, NUM_PADS, SAMPLE_RATE, Mixer, load_track
 from test_engine import make_ramp_wav
 
 
@@ -158,6 +158,15 @@ def run() -> None:
         assert c.song(0)["playing"] and not c.song(4)["playing"]
         c.post({"action": "stop_all"})
 
+        # Drum pads: names are listed, hits start a voice, bad pads give 400.
+        names = c.get_json("/state")["drum_names"]
+        assert len(names) == NUM_PADS and names[0] == "Cowbell" and names[30] == "808 Kick"
+        assert not mixer._voices
+        c.post({"action": "drum", "pad": 0})
+        c.post({"action": "drum", "pad": NUM_PADS - 1})
+        assert len(mixer._voices) == 2
+        mixer._voices.clear()
+
         # Marking in an empty slot reports it; a full song reports it.
         c.post({"action": "mark", "song": 3})
         assert c.status() == "No song in this slot."
@@ -172,6 +181,10 @@ def run() -> None:
         assert status_of(lambda: c.post({"action": "pitch", "song": 0})) == 400
         assert status_of(lambda: c.post({"action": "trigger", "song": 0})) == 400
         assert status_of(lambda: c.post({"action": "trigger", "song": 0, "cue": 0, "layer": "yes"})) == 400
+        assert status_of(lambda: c.post({"action": "drum", "pad": NUM_PADS})) == 400
+        assert status_of(lambda: c.post({"action": "drum", "pad": -1})) == 400
+        assert status_of(lambda: c.post({"action": "drum", "pad": "1"})) == 400
+        assert status_of(lambda: c.post({"action": "drum"})) == 400
         assert status_of(lambda: c.post({"action": "remove_cue", "song": 0})) == 400
         assert status_of(lambda: c.post({"action": "remove_cue", "song": 0, "cue": NUM_CUES})) == 400
         assert status_of(lambda: c.post({"action": "remove_cue", "song": 0, "cue": "1"})) == 400
