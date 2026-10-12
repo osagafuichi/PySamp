@@ -5,6 +5,8 @@ import numpy as np
 import sounddevice as sd
 import soundfile as sf
 
+from pysamp.recorder import Recorder
+
 SAMPLE_RATE = 44100
 NUM_ROWS = 4
 NUM_BANKS = 2
@@ -52,6 +54,25 @@ class Mixer:
         self._voices: list[list] = []
         self._lock = threading.Lock()
         self._stream: sd.OutputStream | None = None
+        self._recorder: Recorder | None = None
+
+    def start_recording(self, path: Path) -> None:
+        self.stop_recording()
+        recorder = Recorder(path, SAMPLE_RATE)
+        with self._lock:
+            self._recorder = recorder
+
+    def stop_recording(self) -> tuple[Path, int] | None:
+        with self._lock:
+            recorder, self._recorder = self._recorder, None
+        if recorder is None:
+            return None
+        recorder.finish()
+        return recorder.path, recorder.frames
+
+    def recorded_frames(self) -> int | None:
+        recorder = self._recorder
+        return None if recorder is None else recorder.frames
 
     def set_track(self, song: int, track: Track) -> None:
         with self._lock:
@@ -173,6 +194,7 @@ class Mixer:
         self._stream.start()
 
     def stop(self) -> None:
+        self.stop_recording()
         if self._stream is not None:
             self._stream.stop()
             self._stream.close()
@@ -209,4 +231,6 @@ class Mixer:
                 outdata[: len(chunk)] += chunk
                 voice[1] += len(chunk)
             self._voices[:] = [v for v in self._voices if v[1] < len(v[0])]
-        np.clip(outdata, -1.0, 1.0, out=outdata)
+            np.clip(outdata, -1.0, 1.0, out=outdata)
+            if self._recorder is not None:
+                self._recorder.push(outdata)

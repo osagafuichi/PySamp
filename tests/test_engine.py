@@ -286,6 +286,43 @@ def test_drums_play_over_songs():
         assert pull(mixer).any(), "stop_all leaves drums alone"
 
 
+def test_recording_captures_the_mix():
+    with tempfile.TemporaryDirectory() as d:
+        wav = Path(d) / "ramp.wav"
+        make_ramp_wav(wav)
+        mixer = Mixer()
+        mixer.set_track(0, load_track(wav))
+        assert mixer.recorded_frames() is None and mixer.stop_recording() is None
+
+        pull(mixer)
+        out = Path(d) / "take.wav"
+        mixer.start_recording(out)
+        assert mixer.recorded_frames() == 0
+        mixer.toggle_play(0)
+        mixer.hit(0)
+        blocks = [pull(mixer) for _ in range(5)]
+        assert mixer.recorded_frames() == 5 * FRAMES
+        path, frames = mixer.stop_recording()
+        assert path == out and frames == 5 * FRAMES and mixer.recorded_frames() is None
+        pull(mixer)
+
+        data, rate = sf.read(str(out), dtype="float32", always_2d=True)
+        assert rate == SAMPLE_RATE and data.shape == (5 * FRAMES, 2)
+        np.testing.assert_allclose(data, np.concatenate(blocks), atol=1e-4)
+        assert np.abs(data).max() > 0.001, "the recording is not silent"
+
+        again = Path(d) / "again.wav"
+        mixer.start_recording(again)
+        second = Path(d) / "second.wav"
+        mixer.start_recording(second)
+        pull(mixer)
+        assert mixer.stop_recording()[0] == second
+        assert sf.info(str(again)).frames == 0, "starting a new recording closes the old one"
+        mixer.start_recording(Path(d) / "last.wav")
+        mixer.stop()
+        assert mixer.recorded_frames() is None, "stop() finishes an open recording"
+
+
 def test_cue_store_roundtrip():
     with tempfile.TemporaryDirectory() as d:
         cue_dir = Path(d)
@@ -307,5 +344,6 @@ if __name__ == "__main__":
     test_trigger_stops_other_songs_unless_layered()
     test_drum_hits()
     test_drums_play_over_songs()
+    test_recording_captures_the_mix()
     test_cue_store_roundtrip()
     print("engine tests passed")
