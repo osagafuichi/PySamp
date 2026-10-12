@@ -63,7 +63,7 @@ class SamplerServer(ThreadingHTTPServer):
         if track is None:
             return None
         if track.track_id not in self.peak_cache:
-            mono = track.data.mean(axis=1)
+            mono = track.data.mean(axis=1, dtype=np.float64)
             bins = max(min(PEAK_BINS, len(mono)), 1)
             blocks = mono[: len(mono) // bins * bins].reshape(bins, -1)
             self.peak_cache[track.track_id] = {
