@@ -6,6 +6,9 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+import numpy as np
+import soundfile as sf
+
 import pysamp.server as server_module
 from pysamp.engine import NUM_CUES, NUM_PADS, SAMPLE_RATE, Mixer, load_track
 from test_engine import make_ramp_wav
@@ -167,6 +170,26 @@ def run() -> None:
         assert len(mixer._voices) == 2
         mixer._voices.clear()
 
+        # Recording: state reports seconds, files land in RECORD_DIR, stopping saves.
+        server_module.RECORD_DIR = Path(d) / "rec"
+        assert c.get_json("/state")["recording"] is None
+        before = c.status()
+        c.post({"action": "record", "on": False})
+        assert c.status() == before and not server_module.RECORD_DIR.exists(), "stopping while idle does nothing"
+        c.post({"action": "record", "on": True})
+        assert c.get_json("/state")["recording"] == 0 and c.status().startswith("Recording")
+        c.post({"action": "record", "on": True})
+        block = np.zeros((SAMPLE_RATE, 2), dtype="float32")
+        mixer._callback(block, SAMPLE_RATE, None, None)
+        assert c.get_json("/state")["recording"] == 1.0
+        c.post({"action": "record", "on": False})
+        assert c.get_json("/state")["recording"] is None and c.status().startswith("Saved recording (0:01)")
+        takes = list(server_module.RECORD_DIR.glob("PySamp-*.wav"))
+        assert len(takes) == 1 and sf.info(str(takes[0])).frames == SAMPLE_RATE
+        c.post({"action": "record", "on": True})
+        c.post({"action": "record", "on": False})
+        assert len(list(server_module.RECORD_DIR.glob("PySamp-*.wav"))) == 2, "a second take never overwrites the first"
+
         # Marking in an empty slot reports it; a full song reports it.
         c.post({"action": "mark", "song": 3})
         assert c.status() == "No song in this slot."
@@ -181,6 +204,8 @@ def run() -> None:
         assert status_of(lambda: c.post({"action": "pitch", "song": 0})) == 400
         assert status_of(lambda: c.post({"action": "trigger", "song": 0})) == 400
         assert status_of(lambda: c.post({"action": "trigger", "song": 0, "cue": 0, "layer": "yes"})) == 400
+        assert status_of(lambda: c.post({"action": "record"})) == 400
+        assert status_of(lambda: c.post({"action": "record", "on": "yes"})) == 400
         assert status_of(lambda: c.post({"action": "drum", "pad": NUM_PADS})) == 400
         assert status_of(lambda: c.post({"action": "drum", "pad": -1})) == 400
         assert status_of(lambda: c.post({"action": "drum", "pad": "1"})) == 400

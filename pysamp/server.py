@@ -14,6 +14,7 @@ from pysamp.engine import NUM_CUES, NUM_PADS, NUM_SONGS, SAMPLE_RATE, Mixer
 from pysamp.loader import load_source
 
 WEB_DIR = Path(__file__).parent / "web"
+RECORD_DIR = Path.home() / "PySamp" / "recordings"
 PEAK_BINS = 1000
 EVENT_INTERVAL = 0.033
 
@@ -58,7 +59,14 @@ class SamplerServer(ThreadingHTTPServer):
                     "cues": list(track.cues),
                 }
             )
-        return {"rate": SAMPLE_RATE, "status": self.status, "songs": songs, "drum_names": NAMES}
+        frames = self.mixer.recorded_frames()
+        return {
+            "rate": SAMPLE_RATE,
+            "status": self.status,
+            "songs": songs,
+            "drum_names": NAMES,
+            "recording": None if frames is None else frames / SAMPLE_RATE,
+        }
 
     def peaks(self, song: int) -> dict | None:
         track = self.mixer.tracks[song]
@@ -81,6 +89,12 @@ class SamplerServer(ThreadingHTTPServer):
             return
         if action == "quit":
             self.quit_event.set()
+            return
+        if action == "record":
+            on = cmd["on"]
+            if not isinstance(on, bool):
+                raise ValueError("bad on")
+            self.record(on)
             return
         if action == "drum":
             pad = cmd["pad"]
@@ -132,6 +146,28 @@ class SamplerServer(ThreadingHTTPServer):
                 threading.Thread(target=self.load, args=(song, source), daemon=True).start()
         else:
             raise ValueError("bad action")
+
+    def record(self, on: bool) -> None:
+        if not on:
+            stopped = self.mixer.stop_recording()
+            if stopped is not None:
+                self.status = f"Saved recording ({fmt_time(stopped[1])}): {stopped[0]}"
+            return
+        if self.mixer.recorded_frames() is not None:
+            return
+        stamp = time.strftime("PySamp-%Y%m%d-%H%M%S")
+        path = RECORD_DIR / f"{stamp}.wav"
+        number = 1
+        while path.exists():
+            number += 1
+            path = RECORD_DIR / f"{stamp}-{number}.wav"
+        try:
+            RECORD_DIR.mkdir(parents=True, exist_ok=True)
+            self.mixer.start_recording(path)
+        except (OSError, RuntimeError) as exc:
+            self.status = f"Could not start recording: {exc}"
+            return
+        self.status = "Recording the mix. Press \\ again to stop and save."
 
     def mark(self, song: int) -> None:
         track = self.mixer.tracks[song]
