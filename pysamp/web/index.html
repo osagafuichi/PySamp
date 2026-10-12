@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PySamp</title>
+<style>
+  :root { --bg:#12151c; --panel:#1b2030; --line:#2b3347; --text:#e6e9f2; --dim:#8b94ab; --accent:#4fd1c5; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-ui,sans-serif; user-select:none; }
+  main { max-width:1100px; margin:0 auto; padding:16px; min-height:100vh; display:flex; flex-direction:column; }
+  #strips { flex:1; display:flex; flex-direction:column; }
+  .bar { display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
+  .grow { flex:1; }
+  button { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:6px 12px; font:inherit; cursor:pointer; }
+  button.on { background:var(--accent); color:#06201e; border-color:var(--accent); font-weight:600; }
+  .strip { background:var(--panel); border:2px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:10px;
+    flex:1 1 0; min-height:130px; display:flex; flex-direction:column; }
+  .strip.sel { border-color:var(--accent); }
+  .head { display:flex; gap:10px; align-items:center; margin-bottom:6px; }
+  .badge { background:var(--bg); border:1px solid var(--line); border-radius:6px; min-width:28px; text-align:center; padding:1px 6px; font-weight:700; }
+  .title { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .info { color:var(--dim); font-variant-numeric:tabular-nums; }
+  canvas { width:100%; flex:1 1 0; min-height:50px; display:block; border-radius:6px; cursor:crosshair; }
+  .foot { display:flex; gap:10px; align-items:center; margin-top:6px; }
+  .vol { width:140px; height:10px; background:var(--bg); border-radius:5px; overflow:hidden; flex:none; }
+  .vol i { display:block; height:100%; background:var(--accent); }
+  .volnum { width:40px; color:var(--dim); font-variant-numeric:tabular-nums; flex:none; }
+  input { flex:1; background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:5px 8px; font:inherit; user-select:text; }
+  #status { margin-top:12px; min-height:20px; }
+  #help { color:var(--dim); margin-top:6px; font-size:12px; }
+  #offline { display:none; background:#742a2a; border-radius:6px; padding:8px 12px; margin-bottom:12px; }
+</style>
+</head>
+<body>
+<main>
+  <div id="offline">PySamp is not running. Close this tab, or start PySamp again.</div>
+  <div class="bar">
+    <button id="mode"></button>
+    <button id="bank0">Bank A: songs 1-4</button>
+    <button id="bank1">Bank B: songs 5-8</button>
+    <button id="page0">Page 1: cues 1-9</button>
+    <button id="page1">Page 2: cues 10-18</button>
+    <span class="grow"></span>
+    <button id="quit">Quit</button>
+  </div>
+  <div id="strips"></div>
+  <div id="status"></div>
+  <div id="help"></div>
+</main>
+<script>
+const T = new URLSearchParams(location.search).get("t");
+const ROW_KEYS = ["1234567890", "qwertyuiop", "asdfghjkl;", "zxcvbnm,./"];
+const ROW_CODES = [
+  ["Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7", "Digit8", "Digit9", "Digit0"],
+  ["KeyQ", "KeyW", "KeyE", "KeyR", "KeyT", "KeyY", "KeyU", "KeyI", "KeyO", "KeyP"],
+  ["KeyA", "KeyS", "KeyD", "KeyF", "KeyG", "KeyH", "KeyJ", "KeyK", "KeyL", "Semicolon"],
+  ["KeyZ", "KeyX", "KeyC", "KeyV", "KeyB", "KeyN", "KeyM", "Comma", "Period", "Slash"],
+];
+const CODE_TO_SLOT = {};
+ROW_CODES.forEach((codes, row) => codes.forEach((code, col) => { CODE_TO_SLOT[code] = [row, col]; }));
+const ROWS = 4, SONGS = 8, PER_PAGE = 9, NUM_CUES = 18, SEEK = 5, KEY_STEP = 0.05, WHEEL_GAIN = 0.0003;
+const HELP = {
+  edit: "Edit mode: 1/Q/A/Z select a song | Space play/pause | M mark cue | Left/Right seek 5s | Backspace delete last cue | " +
+    "click waveform to seek | Tab bank | ` page | Enter play mode | scroll = volume",
+  play: "Play mode: 1/Q/A/Z select a song | other row keys trigger cues | Left/Right volume | Space stop all | " +
+    "Tab bank | ` page | Enter edit mode | scroll = volume",
+};
+
+let S = null;
+let offline = false;
+let vol = { song: -1, value: 0, until: 0 };
+const ui = { mode: "edit", bank: 0, page: 0, selected: 0 };
+const peaks = {};
+const $ = (id) => document.getElementById(id);
+const songOf = (row) => ui.bank * ROWS + row;
+
+function send(cmd) {
+  fetch("/cmd?t=" + T, { method: "POST", body: JSON.stringify(cmd) }).catch(() => {});
+}
+
+function fmt(samples) {
+  const s = Math.floor(samples / S.rate);
+  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+}
+
+function setBank(bank) {
+  ui.bank = bank;
+  ui.selected = bank * ROWS + (ui.selected % ROWS);
+}
+
+function nudgeVolume(song, delta) {
+  if (!S || !S.songs[song].loaded) return;
+  const current = vol.song === song && performance.now() < vol.until ? vol.value : S.songs[song].volume;
+  const value = Math.min(1, Math.max(0, current + delta));
+  vol = { song, value, until: performance.now() + 250 };
+  send({ action: "volume", song, value });
+}
+
+function fetchPeaks(song, id) {
+  peaks[song] = { id, data: null };
+  fetch("/peaks/" + song + "?t=" + T)
+    .then((r) => r.json())
+    .then((data) => { if (peaks[song].id === id) peaks[song].data = data; })
+    .catch(() => {});
+}
+
+const strips = [];
+for (let row = 0; row < ROWS; row++) {
+  const el = document.createElement("section");
+  el.className = "strip";
+  el.innerHTML =
+    '<div class="head"><span class="badge"></span><span class="title"></span><span class="info"></span></div>' +
+    "<canvas></canvas>" +
+    '<div class="foot"><div class="vol"><i></i></div><span class="volnum"></span>' +
+    '<input placeholder="Paste a YouTube link or file path to load into this slot"><button>Load</button></div>';
+  $("strips").append(el);
+  const s = {
+    el, row,
+    canvas: el.querySelector("canvas"),
+    badge: el.querySelector(".badge"),
+    title: el.querySelector(".title"),
+    info: el.querySelector(".info"),
+    fill: el.querySelector(".vol i"),
+    volnum: el.querySelector(".volnum"),
+    input: el.querySelector("input"),
+  };
+  const load = () => {
+    const source = s.input.value.trim();
+    if (!source) return;
+    send({ action: "load", song: songOf(row), source });
+    s.input.value = "";
+    s.input.blur();
+  };
+  el.addEventListener("mousedown", () => { ui.selected = songOf(row); });
+  s.canvas.addEventListener("click", (e) => onWaveClick(s, e));
+  el.querySelector("button").addEventListener("click", load);
+  s.input.addEventListener("keydown", (e) => { if (e.key === "Enter") load(); });
+  strips.push(s);
+}
+
+function onWaveClick(s, e) {
+  const song = songOf(s.row);
+  const d = S && S.songs[song];
+  if (!d || !d.loaded) return;
+  const rect = s.canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  let hit = -1, best = 8;
+  d.cues.forEach((cue, slot) => {
+    if (cue === null || Math.floor(slot / PER_PAGE) !== ui.page) return;
+    const dx = Math.abs((cue / d.total) * rect.width - x);
+    if (dx < best) { best = dx; hit = slot; }
+  });
+  if (hit >= 0) send({ action: "trigger", song, cue: hit });
+  else if (ui.mode === "edit") send({ action: "seek_to", song, fraction: x / rect.width });
+}
+
+function drawWave(s, d) {
+  const cv = s.canvas, dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
+    cv.width = Math.round(w * dpr);
+    cv.height = Math.round(h * dpr);
+  }
+  const g = cv.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.fillStyle = "#0d1017";
+  g.fillRect(0, 0, w, h);
+  g.textAlign = "center";
+  g.font = "14px system-ui";
+  g.fillStyle = "#8b94ab";
+  if (!d.loaded) {
+    g.fillText("Empty slot. Paste a link below and press Load.", w / 2, h / 2);
+    return;
+  }
+  const p = peaks[songOf(s.row)];
+  const mid = h / 2, playX = (d.pos / d.total) * w;
+  if (p && p.data && p.id === d.id) {
+    const n = p.data.max.length;
+    for (let x = 0; x < w; x++) {
+      const i = Math.min(n - 1, Math.floor((x / w) * n));
+      const top = mid - p.data.max[i] * mid * 0.95;
+      const bottom = mid - p.data.min[i] * mid * 0.95;
+      g.fillStyle = x < playX ? "#4fd1c5" : "#4a5878";
+      g.fillRect(x, top, 1, Math.max(1, bottom - top));
+    }
+  } else {
+    g.fillText("Drawing waveform...", w / 2, h / 2);
+  }
+  g.font = "bold 11px system-ui";
+  d.cues.forEach((cue, slot) => {
+    if (cue === null) return;
+    const x = Math.round((cue / d.total) * w) + 0.5;
+    const onPage = Math.floor(slot / PER_PAGE) === ui.page;
+    const active = slot === d.active_cue;
+    g.strokeStyle = onPage ? (active ? "#ffffff" : "#f6ad55") : "rgba(255,255,255,0.2)";
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(x, 0);
+    g.lineTo(x, h);
+    g.stroke();
+    if (onPage) {
+      const lx = Math.min(Math.max(x, 9), w - 9);
+      g.fillStyle = active ? "#ffffff" : "#f6ad55";
+      g.fillRect(lx - 8, 0, 16, 16);
+      g.fillStyle = "#12151c";
+      g.fillText(ROW_KEYS[s.row][(slot % PER_PAGE) + 1].toUpperCase(), lx, 12);
+    }
+  });
+  g.fillStyle = d.playing ? "#ffffff" : "#cbd5e0";
+  g.fillRect(Math.round(playX) - 1, 0, 2, h);
+}
+
+function drawStrip(s) {
+  const song = songOf(s.row), d = S.songs[song];
+  s.el.classList.toggle("sel", song === ui.selected);
+  s.badge.textContent = ROW_KEYS[s.row][0].toUpperCase();
+  if (d.loaded) {
+    const used = d.cues.filter((c) => c !== null).length;
+    s.title.textContent = "Song " + (song + 1) + " - " + d.title;
+    s.info.textContent = fmt(d.pos) + " / " + fmt(d.total) + "  |  cues " + used + "/" + NUM_CUES + "  |  " + (d.playing ? "playing" : "stopped");
+    s.fill.style.width = d.volume * 100 + "%";
+    s.volnum.textContent = Math.round(d.volume * 100) + "%";
+  } else {
+    s.title.textContent = "Song " + (song + 1) + " - empty";
+    s.info.textContent = "";
+    s.fill.style.width = "0";
+    s.volnum.textContent = "";
+  }
+  drawWave(s, d);
+}
+
+function render() {
+  requestAnimationFrame(render);
+  $("mode").textContent = ui.mode.toUpperCase() + " MODE (Enter to switch)";
+  $("mode").classList.toggle("on", ui.mode === "play");
+  for (const i of [0, 1]) {
+    $("bank" + i).classList.toggle("on", ui.bank === i);
+    $("page" + i).classList.toggle("on", ui.page === i);
+  }
+  $("help").textContent = HELP[ui.mode];
+  $("offline").style.display = offline ? "block" : "none";
+  if (S) {
+    $("status").textContent = S.status;
+    S.songs.forEach((d, i) => {
+      if (d.loaded && (!peaks[i] || peaks[i].id !== d.id)) fetchPeaks(i, d.id);
+    });
+    strips.forEach(drawStrip);
+  }
+}
+
+function editKey(code, song) {
+  if (code === "Space") send({ action: "toggle_play", song });
+  else if (code === "ArrowLeft" || code === "ArrowRight") send({ action: "seek", song, seconds: code === "ArrowRight" ? SEEK : -SEEK });
+  else if (code === "KeyM") send({ action: "mark", song });
+  else if (code === "Backspace") send({ action: "remove_last_cue", song });
+  else return false;
+  return true;
+}
+
+function playKey(code, song) {
+  if (code === "ArrowLeft" || code === "ArrowRight") nudgeVolume(song, code === "ArrowRight" ? KEY_STEP : -KEY_STEP);
+  else if (code === "Space") send({ action: "stop_all" });
+  else return false;
+  return true;
+}
+
+function rowKey(row, col) {
+  const song = songOf(row);
+  if (col > 0) send({ action: "trigger", song, cue: ui.page * PER_PAGE + col - 1 });
+  ui.selected = song;
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") {
+    if (e.code === "Escape") e.target.blur();
+    return;
+  }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const code = e.code, song = ui.selected;
+  const known = ["Tab", "Space", "Enter", "Backspace", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Backquote"];
+  if (!known.includes(code) && !(code in CODE_TO_SLOT)) return;
+  e.preventDefault();
+  if (!S || (e.repeat && code !== "ArrowLeft" && code !== "ArrowRight")) return;
+  if (code === "Tab") setBank(1 - ui.bank);
+  else if (code === "Backquote") ui.page = 1 - ui.page;
+  else if (code === "Enter") ui.mode = ui.mode === "edit" ? "play" : "edit";
+  else if (code === "ArrowUp" || code === "ArrowDown") {
+    ui.selected = (ui.selected + (code === "ArrowDown" ? 1 : -1) + SONGS) % SONGS;
+    ui.bank = Math.floor(ui.selected / ROWS);
+  }
+  else if (ui.mode === "edit" && editKey(code, song)) { /* handled */ }
+  else if (ui.mode === "play" && playKey(code, song)) { /* handled */ }
+  else if (code in CODE_TO_SLOT) rowKey(...CODE_TO_SLOT[code]);
+});
+
+function wheelAmount(delta, mode) {
+  return mode === 1 ? delta * 33 : mode === 2 ? delta * 400 : delta;
+}
+
+window.addEventListener("wheel", (e) => {
+  if (e.ctrlKey) return;
+  e.preventDefault();
+  const dy = wheelAmount(e.deltaY, e.deltaMode), dx = wheelAmount(e.deltaX, e.deltaMode);
+  nudgeVolume(ui.selected, (Math.abs(dy) >= Math.abs(dx) ? -dy : dx) * WHEEL_GAIN);
+}, { passive: false });
+
+$("mode").addEventListener("click", () => { ui.mode = ui.mode === "edit" ? "play" : "edit"; });
+$("bank0").addEventListener("click", () => setBank(0));
+$("bank1").addEventListener("click", () => setBank(1));
+$("page0").addEventListener("click", () => { ui.page = 0; });
+$("page1").addEventListener("click", () => { ui.page = 1; });
+$("quit").addEventListener("click", () => send({ action: "quit" }));
+document.addEventListener("click", (e) => { if (e.target.tagName === "BUTTON") e.target.blur(); });
+
+const events = new EventSource("/events?t=" + T);
+events.onmessage = (e) => { S = JSON.parse(e.data); offline = false; };
+events.onerror = () => { offline = true; };
+render();
+</script>
+</body>
+</html>

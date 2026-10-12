@@ -84,6 +84,10 @@ def run() -> None:
             )
         ) == 403
 
+        # The page itself is served.
+        page = c.get("/").decode()
+        assert "<title>PySamp</title>" in page and "EventSource" in page
+
         # State shape.
         state = c.get_json("/state")
         assert state["rate"] == SAMPLE_RATE and len(state["songs"]) == 8
