@@ -13,6 +13,8 @@ CUES_PER_PAGE = 9
 NUM_PAGES = 2
 NUM_CUES = CUES_PER_PAGE * NUM_PAGES
 SEEK_SECONDS = 5
+PITCH_MIN = 0.5
+PITCH_MAX = 2.0
 
 
 class Track:
@@ -20,9 +22,10 @@ class Track:
         self.data = data
         self.title = title
         self.track_id = track_id
-        self.pos = 0
+        self.pos: float = 0
         self.playing = False
         self.volume = 1.0
+        self.rate = 1.0
         self.active_cue: int | None = None
         self.cues: list[int | None] = [None] * NUM_CUES
 
@@ -66,6 +69,12 @@ class Mixer:
             if track is not None:
                 track.volume = min(max(volume, 0.0), 1.0)
 
+    def set_pitch(self, song: int, rate: float) -> None:
+        with self._lock:
+            track = self.tracks[song]
+            if track is not None:
+                track.rate = min(max(rate, PITCH_MIN), PITCH_MAX)
+
     def toggle_play(self, song: int) -> None:
         with self._lock:
             track = self.tracks[song]
@@ -99,7 +108,7 @@ class Mixer:
                 return None
             for slot, value in enumerate(track.cues):
                 if value is None:
-                    track.cues[slot] = track.pos
+                    track.cues[slot] = int(track.pos)
                     return slot
             return None
 
@@ -134,15 +143,30 @@ class Mixer:
             self._stream.close()
             self._stream = None
 
+    @staticmethod
+    def _resample(track: Track, frames: int) -> np.ndarray:
+        idx = track.pos + np.arange(frames) * track.rate
+        count = int(np.searchsorted(idx, len(track.data) - 1))
+        idx = idx[:count]
+        low = idx.astype(np.intp)
+        frac = (idx - low).astype(np.float32)[:, None]
+        chunk = track.data[low] * (1 - frac) + track.data[low + 1] * frac
+        track.pos = track.pos + count * track.rate if count == frames else len(track.data)
+        return chunk
+
     def _callback(self, outdata, frames, time, status) -> None:
         outdata.fill(0)
         with self._lock:
             for track in self.tracks:
                 if track is None or not track.playing:
                     continue
-                chunk = track.data[track.pos : track.pos + frames]
+                if track.rate == 1.0:
+                    start = int(track.pos)
+                    chunk = track.data[start : start + frames]
+                    track.pos = start + len(chunk)
+                else:
+                    chunk = self._resample(track, frames)
                 outdata[: len(chunk)] += chunk * track.volume
-                track.pos += len(chunk)
                 if track.pos >= len(track.data):
                     track.playing = False
         np.clip(outdata, -1.0, 1.0, out=outdata)

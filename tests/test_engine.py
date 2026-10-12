@@ -94,6 +94,59 @@ def test_toggle_seek_and_cue_limits():
         assert mixer.mark_cue(5) is None and not mixer.remove_last_cue(5), "empty song"
 
 
+def test_pitch():
+    with tempfile.TemporaryDirectory() as d:
+        wav = Path(d) / "ramp.wav"
+        make_ramp_wav(wav)
+        track = load_track(wav)
+        mixer = Mixer()
+        mixer.set_track(0, track)
+        ramp = track.data[:, 0]
+
+        def expect(start: float, rate: float) -> np.ndarray:
+            return np.interp(start + np.arange(FRAMES) * rate, np.arange(len(ramp)), ramp)
+
+        mixer.set_pitch(0, 2.0)
+        mixer.seek(0, 1)
+        mixer.toggle_play(0)
+        out = pull(mixer)
+        np.testing.assert_allclose(out[:, 0], expect(SAMPLE_RATE, 2.0), atol=1e-5)
+        assert track.pos == SAMPLE_RATE + 2 * FRAMES
+
+        mixer.set_pitch(0, 0.5)
+        start = track.pos
+        out = pull(mixer)
+        np.testing.assert_allclose(out[:, 0], expect(start, 0.5), atol=1e-5)
+        assert track.pos == start + FRAMES / 2
+
+        mixer.set_volume(0, 0.5)
+        start = track.pos
+        np.testing.assert_allclose(pull(mixer)[:, 0], expect(start, 0.5) * 0.5, atol=1e-5)
+
+        mixer.set_pitch(0, 1.0)
+        mixer.seek_to(0, 0.5)
+        start = int(track.pos)
+        np.testing.assert_allclose(pull(mixer)[:, 0], ramp[start : start + FRAMES] * 0.5, atol=1e-6)
+
+        mixer.set_pitch(0, 99)
+        assert track.rate == 2.0
+        mixer.set_pitch(0, 0)
+        assert track.rate == 0.5
+        mixer.set_pitch(5, 1.5)
+
+        mixer.set_pitch(0, 2.0)
+        mixer.set_volume(0, 1.0)
+        track.pos = len(track.data) - FRAMES
+        track.playing = True
+        pull(mixer)
+        assert not track.playing and track.pos == len(track.data), "stops at the end, no index error"
+        assert not pull(mixer).any()
+
+        track.pos = 1234.75
+        mixer.mark_cue(0)
+        assert track.cues[0] == 1234 and isinstance(track.cues[0], int)
+
+
 def test_empty_row_and_clipping():
     with tempfile.TemporaryDirectory() as d:
         wav = Path(d) / "ramp.wav"
@@ -126,6 +179,7 @@ def test_cue_store_roundtrip():
 if __name__ == "__main__":
     test_mark_trigger_and_volume()
     test_toggle_seek_and_cue_limits()
+    test_pitch()
     test_empty_row_and_clipping()
     test_cue_store_roundtrip()
     print("engine tests passed")
