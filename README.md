@@ -148,7 +148,7 @@ A song that stops because you triggered another one keeps its place. Select it a
 
 ### Caps Lock: instruments and drums
 
-Turn **Caps Lock on** and the keyboard becomes an instrument. The number row picks the sound. The 30 letter keys (`Q` to `P`, `A` to `;`, `Z` to `/`) play it. A preset strip and a grid of keycaps appear on the right and show what each key plays. The song panels stay visible on the left (narrower), and a teal tag with the sound name appears in the top bar. The songs keep playing. On a window narrower than 1000 px the grid goes below the songs. Turn Caps Lock off to go back to normal. `Tab`, `` ` ``, `Enter`, `Up` / `Down`, `Space` and the other non-letter keys keep their normal job. You can also click a preset or a key.
+Turn **Caps Lock on** and the keyboard becomes an instrument. The number row picks the sound. Instruments get a two-row piano, and the drum kit gets a grid of 30 pads. A preset strip and the piano (or pad grid) appear on the right and show what each key plays. The song panels stay visible on the left (narrower), and a teal tag with the sound name appears in the top bar. The songs keep playing. On a window narrower than 1000 px the grid goes below the songs. Turn Caps Lock off to go back to normal. `Tab`, `` ` ``, `Enter`, `Up` / `Down`, `Space` and the other non-letter keys keep their normal job. You can also click a preset or a key.
 
 | Key | Sound |
 |-----|-------|
@@ -163,17 +163,23 @@ Turn **Caps Lock on** and the keyboard becomes an instrument. The number row pic
 | `9` | Brass |
 | `0` | Drum kit (the default when you turn Caps Lock on) |
 
-**Instruments.** Each letter row is one octave of the C major scale. The home row (`A`) starts at middle C. The top row (`Q`) is one octave lower and the bottom row (`Z`) is one octave higher. (Bass is one octave lower again.)
+**Instruments.** The keys work like a piano. The home row is the white keys and the row above it is the black keys (sharps and flats), laid out like the real keys. The range is 18 semitones: from `A` (middle C) up to `'` (F, one octave and a fourth above).
 
-| Row | Keys | Notes (piano) |
-|-----|------|---------------|
-| Top | `Q W E R T Y U I O P` | C3 D3 E3 F3 G3 A3 B3 C4 D4 E4 |
-| Home | `A S D F G H J K L ;` | C4 D4 E4 F4 G4 A4 B4 C5 D5 E5 |
-| Bottom | `Z X C V B N M , . /` | C5 D5 E5 F5 G5 A5 B5 C6 D6 E6 |
+| Row | Keys | Notes |
+|-----|------|-------|
+| White | `A S D F G H J K L ; '` | C D E F G A B C D E F |
+| Black | `W E` `T Y U` `O P` | Db Eb, Gb Ab Bb, Db Eb |
+
+| Key | Does |
+|-----|------|
+| `Z` / `X` | Octave down / up. Four positions. The piano keys show the note names, and the panel shows the note that `A` plays now |
+| `C` / `V` | Velocity (loudness of each note) down / up, in steps of 10%, from 10% to 100%. It starts at 80% |
+
+The octave and velocity apply to notes you press after the change. Bass starts one octave lower than the others.
 
 - A note plays while you hold the key and fades out when you let go. Organ, Strings, Choir, Synth Lead and Brass loop, so they sustain as long as you hold. Piano, Electric Piano, Guitar and Bass die away by themselves, like the real thing.
 - You can hold several keys for a chord. Up to 32 sounds can ring at once. A held key does not repeat.
-- Changing the sound while you hold keys does not cut them. They fade out when you let go.
+- Changing the sound or octave while you hold keys does not cut them. They fade out when you let go.
 - Notes are not affected by song volume. `Space` (stop all) does not stop them.
 
 **Drum kit** (`0`).
@@ -192,11 +198,21 @@ Turn **Caps Lock on** and the keyboard becomes an instrument. The number row pic
 
 ### Record
 
-Press `\` (backslash, above `Enter`) or click **Record** in the top bar to start recording. The button turns red and shows the time. Do your performance: cues, volume, pitch, drums. Press `\` again (or click the button) to stop and save.
+Press `\` (backslash, above `Enter`) or click **Record** in the top bar to start recording. The button turns red and shows the time. Do your performance: cues, volume, pitch, drums, notes. Press `\` again (or click the button) to stop and save.
 
-- It records the **mix that PySamp plays**: all songs and drums, with your volume and pitch changes, as you hear them. It starts from the moment you press record and includes silent gaps. It does not record other apps or your microphone.
+- It records the **mix that PySamp plays**: all songs, drums, notes and takes that are playing, with your volume and pitch changes, as you hear them. It starts from the moment you press record and includes silent gaps. It does not record other apps or your microphone.
 - The file is a WAV (16-bit, 44.1 kHz, stereo, about 10 MB per minute) in `~/PySamp/recordings` (Windows: `C:\Users\<you>\PySamp\recordings`), named like `PySamp-20261012-230038.wav`. The status line shows the full path when you stop. A new take never overwrites an old one.
 - `\` works in both modes and while Caps Lock is on. If you quit while recording, the take is saved.
+
+**Recordings screen (Caps Lock on).** When you record with Caps Lock on, the page changes to the studio layout. The songs move to the top half. The bottom half is split in two: the keyboard (piano or drum pads) on the left and your recordings on the right.
+
+- While you record, a red lane shows the loudness over time. When you stop, it becomes a **take**: a lane with the waveform.
+- Each new recording goes in a new lane **below** the others. A take lane holds up to 8 takes. When there are more, the oldest ones leave the list (their wav files stay saved).
+- **Play** / **Stop** plays the take from the start or stops it. Click the waveform to play from that point. Several takes can play at once, and you can play the keyboard over them. Takes stop on `Space` in Play mode (stop all).
+- **Use as song** loads the take into the selected song slot, so you can mark cues on it and trigger it like any other song.
+- **x** removes the take from the list. The wav file is not deleted.
+- Record while takes play to layer them: the new recording contains what they play.
+- The studio layout stays while Caps Lock is on and there are takes. Turn Caps Lock off to see the normal screen. Takes keep their place. Takes are in memory only: when you quit, they leave the list (the wav files stay).
 
 ## The screen
 
@@ -219,13 +235,13 @@ Click **Quit** in the page, or press `Ctrl+C` in the console window. Closing the
 - Cues fill in the order you mark them. They are sorted by time only when you delete one. After that, a new cue goes into the first free slot, which can be out of time order. Flags that are close together can overlap.
 - You cannot delete with `M` held, because `M` marks a cue in Edit mode. Delete is Edit mode only.
 - You cannot remove a song from a slot. You can only replace it with another song.
-- Bank and page are toggle keys (`Tab`, `` ` ``), not hold keys. There is no "hold to play" yet. Command is not usable because the browser keeps those shortcuts.
+- Command is not usable as a key because the browser keeps those shortcuts.
 - In Edit mode `M` marks a cue, so cue 5 of row 4 (the `M` key) cannot be auditioned there. It works in Play mode.
 - No loop, mute, solo, tempo-only change, key lock, or EQ. Pitch and tempo change together.
 - Sound at high pitch settings may be a little rough (simple resampling).
 - Volume is per song only. The master level is your system volume.
 - Many keyboards cannot read more than about 6 keys at once.
-- The drum sounds are simple synthesized ones. There is no volume, pitch, sharp or flat, or key change for drums and instruments. Instruments only play the C major scale. A note or drum hit goes through the browser and the program, so it can be a few milliseconds slower than a real instrument.
+- The drum sounds are simple synthesized ones. Drums have no volume, pitch or velocity control. Instruments have no pitch bend or key change, and the range is 18 semitones per octave position. A note or drum hit goes through the browser and the program, so it can be a few milliseconds slower than a real instrument.
 - The instruments are played from small sample sets, and the notes between them are pitch-shifted, so some notes sound less natural. A held note on Piano, Electric Piano, Guitar or Bass goes silent after a few seconds. The sounds have not been judged by ear by the author yet.
 - Recording saves the final audio only. It does not save your key presses, so you cannot replay or edit a performance. There is no pause, and no trimming of the silence at the start.
 - The page reads the Caps Lock state from key presses and mouse moves. If the grid does not appear right after you press Caps Lock, press any key or move the mouse.
@@ -291,7 +307,8 @@ For the DJ test, please answer:
    Does pitch feel right (step size, range)? Do you need pitch to change tempo only, without changing the key (key-lock)?
 7. Is there delay between key press and sound? Is it worse for the drum kit (Caps Lock)?
    Do the drums and the 9 instruments sound good enough? Which pads or sounds are missing? Do you need sharps and flats, or a key change?
-   Is the note layout (one octave per row, home row = middle C) easy to learn?
+   Is the piano layout (white keys on the home row, black keys above, `Z`/`X` octave, `C`/`V` velocity) easy to learn?
+   Does the studio layout (songs on top, keyboard left, recordings right) work for you? What should a take be able to do?
    Is it right that a cue key stops the other songs unless you hold `Shift`?
    Recording saves the audio you hear. Is that what you want, or do you want it to save your key presses so you can replay and edit them?
 8. Did the install work first try? Where did you get stuck?
