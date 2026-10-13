@@ -1,266 +1,221 @@
-# PySamp (test version 0.4)
+# PySamp 1.0
 
-A sampler/mixer that runs in your browser. You load up to 8 songs. Each row of your computer keyboard is one song. You mark your own cue points in each song. Then each key in the row jumps to one of your cue points and plays from there. The page shows each song as a waveform with your cue points on it.
+A sampler for your browser. Load songs, mark your favourite moments as **cue points**, then jump to them with your keyboard. Turn on Caps Lock to play instruments and drums, and to record what you play.
 
-This is an early test build. Please break it and send feedback (questions at the bottom).
+- Up to **8 songs**. Each keyboard row is one song.
+- Up to **18 cue points** per song. Each cue is one key.
+- **Caps Lock** turns the keyboard into a piano or a drum kit.
+- **Record** your whole performance and play the recordings back.
 
 ## Install
 
-### Mac (Apple Silicon: M1/M2/M3/M4)
+### Mac (Apple Silicon: M1 to M4)
 
-1. Download `PySamp-mac-arm64.zip` from the Releases page and unzip it.
-2. Open Terminal and remove the download block that macOS puts on unsigned apps:
+1. Download `PySamp-mac-arm64.zip` from the Releases page. Unzip it.
+2. Open Terminal. Remove the block macOS puts on unsigned apps:
    ```
    xattr -dr com.apple.quarantine ~/Downloads/PySamp
    ```
-   (Change the path if you unzipped somewhere else.)
 3. Start it:
    ```
    ~/Downloads/PySamp/PySamp
    ```
-   Your browser opens with PySamp. If it does not, copy the `http://127.0.0.1:...` address printed in Terminal into your browser.
 
-Intel Macs: not packaged. Use "Run from source" below.
+Your browser opens with PySamp. If not, copy the `http://127.0.0.1:...` address from Terminal into your browser. Intel Mac: use [Run from source](#run-from-source).
 
 ### Windows
 
-1. Download `PySamp-windows-amd64.zip` from the Releases page and unzip it.
-2. Open the `PySamp` folder and double-click `PySamp.exe`.
-3. If SmartScreen says "Windows protected your PC", click **More info**, then **Run anyway**. The app is not code-signed.
-4. A black console window opens and your browser opens with PySamp. Keep the console window open while you use PySamp.
+1. Download `PySamp-windows-amd64.zip` from the Releases page. Unzip it.
+2. Double-click `PySamp.exe` in the `PySamp` folder.
+3. If Windows says "protected your PC", click **More info**, then **Run anyway**. The app is not code-signed.
+4. A console window opens, and then your browser. Keep the console window open.
 
-PySamp only talks to your own computer (`127.0.0.1`). Nothing is exposed to the network. Each start makes a new address with a secret code, so an old bookmark will not work.
+PySamp only talks to your own computer (`127.0.0.1`). Nothing goes on the network. Each start makes a new secret address, so old bookmarks stop working.
 
-## The 3 steps
+## Quick start
 
-### Step 1: load songs
+### 1. Load songs
 
-Each of the 4 song panels has a text box at the bottom. Paste a YouTube link or a file path and press `Enter` (or click **Load**).
+Each song panel has a text box. Paste a **YouTube link** or a **file path** (wav, flac, ogg, mp3). Press `Enter`.
 
-- A song can be a YouTube link or the path to a file on your computer (wav, flac, ogg, mp3).
-- YouTube songs are downloaded and converted. A 4-minute song takes a few seconds. The status line under the songs shows `Loading...` and then `Loaded song N`. The app keeps working meanwhile.
-- You can load into any slot, in any order. Loading into a slot that already has a song replaces it. The old song's cues stay saved on disk.
-- Songs 1-4 are **bank A**. Songs 5-8 are **bank B**. Use the bank buttons or `Tab` to see the other four.
-- You can also preload songs from the command line: `PySamp SOURCE1 SOURCE2 ...`
+- Songs 1 to 4 are **bank A**. Songs 5 to 8 are **bank B**. Press `Tab` to switch.
+- YouTube songs are downloaded to `~/PySamp/downloads` and reused next time.
+- You can also load from the command line: `PySamp SONG1 SONG2 ...`
 
-Downloads are saved in `~/PySamp/downloads` (Windows: `C:\Users\<you>\PySamp\downloads`). A song you loaded before is reused.
-
-### Step 2: mark cue points (Edit mode)
+### 2. Mark cues (Edit mode)
 
 PySamp starts in **Edit mode**.
 
-1. Pick a song with its selector key (`1`, `Q`, `A`, or `Z`), by clicking its panel, or with `Up` / `Down`.
-2. Press `Space` to play. Press `Space` again to pause.
-3. Press `M` at each moment you want a cue (a drop, a beat, a vocal).
-4. Use `Left` / `Right` to jump back or ahead 5 seconds, or press on the waveform and drag to move the playhead.
+1. Select a song: press its first key (`1`, `Q`, `A` or `Z`), or click it.
+2. Press `Space` to play. Press `M` at every moment you want a cue.
+3. `Left` / `Right` jump 5 seconds. You can also drag on the waveform.
 
-Cues fill the cue keys of the song's row in order. On row 1 the first `M` is key `2`, the second is `3`, and so on up to `0` (the 9th). The 10th to 18th go on **page 2** (see below). Each song holds up to 18 cues. Each cue shows on the waveform as an orange flag with its key letter. The status line tells you which cue you just marked.
+Cues are saved in `~/PySamp/cues`. They come back when you load the same song again.
 
-Your cues are saved automatically in `~/PySamp/cues`. Next time you load the same song, they are back.
+### 3. Perform (Play mode)
 
-Made a mistake? Hold a cue key and press `Backspace` to delete that one cue. The cues that remain are then renumbered by their position in the song, earliest first, so there are no gaps. `Backspace` alone deletes the last cue you marked.
+Press `Enter` to switch to **Play mode**. Now each cue key jumps to its cue and plays. Press `Enter` again to go back.
 
-### Step 3: perform (Play mode)
+## Key cheat sheet
 
-Press `Enter` (or click the mode button) to switch to **Play mode**. Now each cue key in a row jumps to a cue and plays. Press `Enter` again to go back to Edit mode.
+Each row is one song. The **first key** selects the song. The **other nine keys** are its cues.
 
-## Controls
-
-The page must be the active browser tab, and the cursor must not be in a text box, for keys to work. Press `Esc` to leave a text box.
-
-### Row keys
-
-Each row is one song. The **first key** of the row selects that song. The other **nine keys** are its cues (left to right).
-
-| Row | Select song | Cue keys (cues 1-9 on page 1) | Song in bank A | Song in bank B |
-|-----|-------------|-------------------------------|----------------|----------------|
-| 1 (number row) | `1` | `2 3 4 5 6 7 8 9 0` | Song 1 | Song 5 |
+| Row | Select | Cue keys | Bank A | Bank B |
+|-----|--------|----------|--------|--------|
+| 1 | `1` | `2 3 4 5 6 7 8 9 0` | Song 1 | Song 5 |
 | 2 | `Q` | `W E R T Y U I O P` | Song 2 | Song 6 |
 | 3 | `A` | `S D F G H J K L ;` | Song 3 | Song 7 |
 | 4 | `Z` | `X C V B N M , . /` | Song 4 | Song 8 |
 
-A selector key only selects. It never plays. The selected song has the teal border and is the one the scroll wheel controls. Keys follow the physical key positions, so other keyboard layouts work the same way.
-
-### Mouse and trackpad
-
-| Action | Result |
-|--------|--------|
-| Scroll anywhere in the window | Volume of the **selected song** (no need to hover) |
-| Click a song panel | Select that song |
-| Click an orange cue flag | Jump to that cue and play |
-| Press and drag on the waveform (Edit mode) | Move the playhead. It follows the pointer, also while playing |
-| Hold right button and scroll | Pitch of the **selected song** |
-| Hold `Option` (Mac) or `Alt` (Windows) and scroll | Pitch of the selected song (use this on a trackpad) |
-| Click the pitch bar of a song | Reset its pitch to normal |
-| Mode / bank / page buttons | Same as `Enter` / `Tab` / `` ` `` |
-
-- Mouse wheel and two-finger trackpad scrolling both work. A bigger scroll changes the volume more.
-- Pitch works like a turntable: higher pitch also means faster tempo. The range is half speed to double speed. Pitch is not saved. It resets when you restart.
-- On a Mac trackpad, "hold right-click and scroll" needs one finger pressed in a two-finger click while another finger scrolls. That is hard, so use `Option` + scroll instead.
-- The direction follows your system "natural scrolling" setting. If it feels backwards, flip that setting.
-- A fast trackpad flick keeps scrolling for a moment (momentum), so use small movements for fine control.
-
-### Bank and page keys (work in both modes)
+### Always
 
 | Key | Action |
 |-----|--------|
-| `Tab` | Switch bank: songs 1-4 (A) or songs 5-8 (B) |
-| `` ` `` (backtick, left of `1`) | Switch cue page: cues 1-9 (page 1) or cues 10-18 (page 2) |
-| `Up` / `Down` | Select the previous / next song (moves between banks) |
-| `Enter` | Switch between Edit mode and Play mode |
+| `Tab` | Switch bank (A / B) |
+| `` ` `` | Switch cue page (cues 1-9 / cues 10-18) |
+| `Up` / `Down` | Select previous / next song |
+| `Enter` | Switch Edit mode / Play mode |
+| `\` | Start / stop recording |
+| `Caps Lock` | Instruments and drums on / off |
+| Scroll | Volume of the selected song |
+| `Option` (Mac) or `Alt` + scroll | Pitch of the selected song |
 
-`Tab` and `` ` `` work two ways. **Tap** the key (release within a quarter of a second) and the new bank or page stays. **Hold** the key and the bank or page is only borrowed: it goes back to the old one when you let go. Use a hold to fire a cue from the other bank or page and return without a second key press.
+`Tab` and `` ` `` work two ways. **Tap** them and the new bank or page stays. **Hold** them and it only lasts while you hold. Use a hold to fire one cue from the other bank or page.
 
-Both together give all 4 combinations:
-
-| Bank | Page | Songs | Cues |
-|------|------|-------|------|
-| A | 1 | 1-4 | 1-9 |
-| A | 2 | 1-4 | 10-18 |
-| B | 1 | 5-8 | 1-9 |
-| B | 2 | 5-8 | 10-18 |
-
-### Edit mode keys
+### Edit mode
 
 | Key | Action |
 |-----|--------|
 | `Space` | Play / pause the selected song |
-| `M` | Mark a cue at the current position |
+| `M` | Mark a cue here |
 | `Left` / `Right` | Jump back / ahead 5 seconds |
-| Hold a cue key + `Backspace` | Delete that cue. The rest are renumbered by position in the song |
-| `Backspace` alone | Delete the last cue |
-| Cue keys | Audition a saved cue (except `M`, which marks) |
+| Cue key | Listen to that cue |
+| Hold a cue key + `Backspace` | Delete that cue |
+| `Backspace` | Delete the last cue |
 
-### Play mode keys
+### Play mode
 
 | Key | Action |
 |-----|--------|
-| Cue keys | Jump to that cue and play. The other songs stop |
-| `Shift` + cue key | Play that cue and leave the others alone. The other songs **keep playing**. If the song is already playing, the cue starts **on top of** it (a second playhead) and the first one keeps going. Up to 8 can overlap |
-| `Left` / `Right` | Volume down / up for the selected song (5% per press) |
-| `Space` | Stop all songs |
+| Cue key | Jump to the cue and play. **Other songs stop** |
+| `Shift` + cue key | Play the cue and **keep the other songs playing** |
+| `Left` / `Right` | Volume down / up (selected song) |
+| `Space` | Stop everything |
 
-Pressing a cue key also selects that song, so scrolling or `Left` / `Right` right after a trigger changes the volume of the song you just hit.
+`Shift` also layers inside one song. If the song is already playing, the new cue starts on top of it (up to 8 at once).
 
-A cue key without `Shift` replaces the overlaps: only one playhead stays. Pause (`Space` in Edit mode) and stop all also remove them. Overlapping cues share the song's volume and pitch.
+### Caps Lock: piano
 
-A song that stops because you triggered another one keeps its place. Select it and press `Space` (Edit mode) to continue it. A cue key with no cue set does nothing, so it never stops anything. The same rule applies to cue keys in Edit mode and to clicking an orange cue flag (`Shift` + click keeps the others playing).
+Turn Caps Lock on. Press `1` to `9` to pick an instrument.
 
-### Caps Lock: instruments and drums
+| Key | Instrument |
+|-----|------------|
+| `1` Grand Piano | `2` Electric Piano |
+| `3` Organ | `4` Strings |
+| `5` Guitar | `6` Bass |
+| `7` Choir | `8` Synth Lead |
+| `9` Brass | `0` Drum kit |
 
-Turn **Caps Lock on** and the keyboard becomes an instrument. The number row picks the sound. Instruments get a two-row piano, and the drum kit gets a grid of 30 pads. A preset strip and the piano (or pad grid) appear on the right and show what each key plays. The song panels stay visible on the left (narrower), and a teal tag with the sound name appears in the top bar. The songs keep playing. On a window narrower than 1000 px the grid goes below the songs. Turn Caps Lock off to go back to normal. `Tab`, `` ` ``, `Enter`, `Up` / `Down`, `Space` and the other non-letter keys keep their normal job. You can also click a preset or a key.
+The keys are laid out like a real piano:
 
-| Key | Sound |
-|-----|-------|
-| `1` | Grand Piano |
-| `2` | Electric Piano |
-| `3` | Organ |
-| `4` | Strings |
-| `5` | Guitar |
-| `6` | Bass |
-| `7` | Choir |
-| `8` | Synth Lead |
-| `9` | Brass |
-| `0` | Drum kit (the default when you turn Caps Lock on) |
+```
+ black keys:      W  E     T  Y  U     O  P
+ white keys:     A  S  D  F  G  H  J  K  L  ;  '
+ notes:          C  D  E  F  G  A  B  C  D  E  F
+```
 
-**Instruments.** The keys work like a piano. The home row is the white keys and the row above it is the black keys (sharps and flats), laid out like the real keys. The range is 18 semitones: from `A` (middle C) up to `'` (F, one octave and a fourth above).
+| Key | Action |
+|-----|--------|
+| `Z` / `X` | Octave down / up |
+| `C` / `V` | Softer / louder (10% steps, starts at 80%) |
 
-| Row | Keys | Notes |
-|-----|------|-------|
-| White | `A S D F G H J K L ; '` | C D E F G A B C D E F |
-| Black | `W E` `T Y U` `O P` | Db Eb, Gb Ab Bb, Db Eb |
+Hold a key to sustain the note. Hold several keys for a chord. The screen shows the note names on the keys.
 
-| Key | Does |
-|-----|------|
-| `Z` / `X` | Octave down / up. Four positions. The piano keys show the note names, and the panel shows the note that `A` plays now |
-| `C` / `V` | Velocity (loudness of each note) down / up, in steps of 10%, from 10% to 100%. It starts at 80% |
+### Caps Lock: drums
 
-The octave and velocity apply to notes you press after the change. Bass starts one octave lower than the others.
+Press `0` for the drum kit. Each key is one drum pad. The screen shows the pad names.
 
-- A note plays while you hold the key and fades out when you let go. Organ, Strings, Choir, Synth Lead and Brass loop, so they sustain as long as you hold. Piano, Electric Piano, Guitar and Bass die away by themselves, like the real thing.
-- You can hold several keys for a chord. Up to 32 sounds can ring at once. A held key does not repeat.
-- Changing the sound or octave while you hold keys does not cut them. They fade out when you let go.
-- Notes are not affected by song volume. `Space` (stop all) does not stop them.
+| Row | Keys | Sounds |
+|-----|------|--------|
+| Top | `Q W E R T Y U I O P` | hi-hats, shaker, ride, crashes |
+| Home | `A S D F G H J K L ;` | snares, claps, rim, snap |
+| Bottom | `Z X C V B N M , . /` | kicks and toms |
 
-**Drum kit** (`0`).
+The four hi-hats cut each other off, like a real kit.
 
-| Row | Keys | Pads |
-|-----|------|------|
-| Top | `Q W E R T Y U I O P` | Closed Hat, Tight Hat, Open Hat, Pedal Hat, Shaker, Ride, Ride Bell, Crash, Dark Crash, Splash |
-| Home | `A S D F G H J K L ;` | Snare, Boom Snare, House Snare, Clap, House Clap, Rimshot, Side Stick, Snap, Ghost Snare, Gated Snare |
-| Bottom | `Z X C V B N M , . /` | 808 Kick, Boom Kick, House Kick, Punch Kick, Tight Kick, Floor Tom, Low Tom, Mid Tom, High Tom, Electro Tom |
+## Recording
 
-- The drum sounds are made by the program itself (hip-hop, house and classic kit sounds mixed).
-- The four hats cut each other off, so a closed hat ends an open hat.
-- Holding a key does not repeat the hit. Drums are not affected by song volume, and `Space` does not stop them.
+Press `\` (or click **Record**) to start. The button turns red and shows the time. Press `\` again to stop.
 
-**Sound credits.** The instrument sounds are from the FluidR3_GM soundfont, as packaged in the gleitz/midi-js-soundfonts project, which licenses them under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). They are stored inside the app (about 3.7 MB), so no internet is needed. `scripts/fetch_samples.py` downloads them again.
+- It records **what PySamp plays**: songs, drums, notes and takes, with your volume and pitch moves. It does not record your microphone or other apps.
+- Files are WAV (stereo, 44.1 kHz) in `~/PySamp/recordings`. An old file is never overwritten. The status line shows the path.
 
-### Record
+### Recordings screen
 
-Press `\` (backslash, above `Enter`) or click **Record** in the top bar to start recording. The button turns red and shows the time. Do your performance: cues, volume, pitch, drums, notes. Press `\` again (or click the button) to stop and save.
+If **Caps Lock is on** while you record, the screen changes:
 
-- It records the **mix that PySamp plays**: all songs, drums, notes and takes that are playing, with your volume and pitch changes, as you hear them. It starts from the moment you press record and includes silent gaps. It does not record other apps or your microphone.
-- The file is a WAV (16-bit, 44.1 kHz, stereo, about 10 MB per minute) in `~/PySamp/recordings` (Windows: `C:\Users\<you>\PySamp\recordings`), named like `PySamp-20261012-230038.wav`. The status line shows the full path when you stop. A new take never overwrites an old one.
-- `\` works in both modes and while Caps Lock is on. If you quit while recording, the take is saved.
+```
++----------------------------------------+
+|  Songs (top half)                      |
++--------------------+-------------------+
+|  Keyboard          |  Recording lane 1 |
+|  (piano or drums)  |  Recording lane 2 |
+|                    |  Recording lane 3 |
++--------------------+-------------------+
+```
 
-**Recordings screen (Caps Lock on).** When you record with Caps Lock on, the page changes to the studio layout. The songs move to the top half. The bottom half is split in two: the keyboard (piano or drum pads) on the left and your recordings on the right.
-
-- While you record, a red lane shows the loudness over time. When you stop, it becomes a **take**: a lane with the waveform.
-- Each new recording goes in a new lane **below** the others. A take lane holds up to 8 takes. When there are more, the oldest ones leave the list (their wav files stay saved).
-- **Play** / **Stop** plays the take from the start or stops it. Click the waveform to play from that point. Several takes can play at once, and you can play the keyboard over them. Takes stop on `Space` in Play mode (stop all).
-- **Use as song** loads the take into the selected song slot, so you can mark cues on it and trigger it like any other song.
-- **x** removes the take from the list. The wav file is not deleted.
-- Record while takes play to layer them: the new recording contains what they play.
-- The studio layout stays while Caps Lock is on and there are takes. Turn Caps Lock off to see the normal screen. Takes keep their place. Takes are in memory only: when you quit, they leave the list (the wav files stay).
+- While you record, a red lane shows how loud it is.
+- When you stop, the recording becomes a **take**: a lane with its waveform. New takes go **below** the old ones. The list holds 8 takes.
+- **Play** / **Stop** plays a take. Click the waveform to start from that point. Several takes can play together, and you can play the keyboard over them.
+- **Use as song** loads the take into the selected song slot. Then you can mark cues in it like any song.
+- **x** removes a take from the list. The WAV file stays on disk.
+- Record while takes play to layer them: the new recording contains them.
+- Turn Caps Lock off to see the normal screen. Takes stay in memory until you quit.
 
 ## The screen
 
-- **Top bar:** the mode, bank, and page buttons (the active ones are teal), **Record** (red while recording) and **Quit**.
-- **One panel per song** in the current bank:
-  - The badge on the left is the selector key. The title line shows the song number and name.
-  - On the right: current time / length, how many cues are set (`5/18`), and `playing` or `stopped`.
-  - The waveform: teal is already played, grey is still to come. The white line is the playhead.
-  - Orange flags are the cues on the current page, each with its key letter. The white flag is the last cue you triggered. Faint lines are cues on the other page.
-  - The bar at the bottom left is the volume. Next to it is the pitch bar: the tick in the middle is normal pitch, the fill grows left (slower) or right (faster), and the number shows the change in percent. The text box loads a song into this slot.
-- **Status line:** what just happened (cue marked, song loaded, errors).
-- **Help line:** the keys for the current mode.
+- **Top bar:** mode, bank, page, **Record**, **Quit**. The active buttons are teal.
+- **Song panel:** badge (selector key), title, time, cue count, `playing` or `stopped`. In the waveform, teal is played, grey is still to come, the white line is the playhead. Orange flags are cues on this page. Below it: volume bar, pitch bar (click it to reset), and the load box.
+- **Status line:** what just happened. **Help line:** the keys for the current mode.
+
+You can also use the mouse: click a song to select it, click an orange flag to play that cue, drag on the waveform (Edit mode) to move the playhead, and click the mode, bank and page buttons.
 
 ## Quit
 
-Click **Quit** in the page, or press `Ctrl+C` in the console window. Closing the browser tab does **not** stop PySamp, and sound keeps playing.
+Click **Quit**, or press `Ctrl+C` in the console. Closing the browser tab does **not** stop PySamp.
 
 ## Known limits
 
-- Cues fill in the order you mark them. They are sorted by time only when you delete one. After that, a new cue goes into the first free slot, which can be out of time order. Flags that are close together can overlap.
-- You cannot delete with `M` held, because `M` marks a cue in Edit mode. Delete is Edit mode only.
-- You cannot remove a song from a slot. You can only replace it with another song.
-- Command is not usable as a key because the browser keeps those shortcuts.
-- In Edit mode `M` marks a cue, so cue 5 of row 4 (the `M` key) cannot be auditioned there. It works in Play mode.
-- No loop, mute, solo, tempo-only change, key lock, or EQ. Pitch and tempo change together.
-- Sound at high pitch settings may be a little rough (simple resampling).
-- Volume is per song only. The master level is your system volume.
+- You cannot remove a song from a slot. You can only replace it.
+- In Edit mode `M` marks a cue, so the `M` cue key (row 4) only plays in Play mode.
+- Cues are sorted by time only when you delete one. After that, a new cue can land out of time order.
+- No loop, mute, solo, EQ or key lock. Pitch and speed change together (half speed to double). Pitch is not saved.
+- Volume is per song. Drums and notes are not affected by it. The master level is your system volume.
+- Instruments are played from small sample sets, so some notes sound less natural. Piano, Electric Piano, Guitar and Bass fade out by themselves after a few seconds.
+- Drums are made by the program and are not adjustable.
+- The first note after you pick a new instrument can be a little late. Pressing its number key loads it ahead of time.
+- Keys go through the browser, so there can be a few milliseconds of delay.
 - Many keyboards cannot read more than about 6 keys at once.
-- The drum sounds are simple synthesized ones. Drums have no volume, pitch or velocity control. Instruments have no pitch bend or key change, and the range is 18 semitones per octave position. A note or drum hit goes through the browser and the program, so it can be a few milliseconds slower than a real instrument.
-- The instruments are played from small sample sets, and the notes between them are pitch-shifted, so some notes sound less natural. A held note on Piano, Electric Piano, Guitar or Bass goes silent after a few seconds. The sounds have not been judged by ear by the author yet.
-- Recording saves the final audio only. It does not save your key presses, so you cannot replay or edit a performance. There is no pause, and no trimming of the silence at the start.
-- The page reads the Caps Lock state from key presses and mouse moves. If the grid does not appear right after you press Caps Lock, press any key or move the mouse.
-- The first note of an instrument you have not used yet can be a little late, because its sound is loaded then. Pressing the number key loads it ahead of time.
+- A recording saves audio only, not your key presses. There is no pause or trim.
+- Takes are not kept after you quit. Their WAV files are.
+- On some computers the Caps Lock state shows only after you press a key or move the mouse.
 
 ## Troubleshooting
 
-- **No sound:** check your system output device. Check that the volume of the song is above zero (scroll up raises it). In Edit mode, press `Space` on the selected song.
-- **Browser did not open:** copy the `http://127.0.0.1:...` address from the console window into your browser.
-- **"PySamp is not running" banner:** the app was quit or crashed. Start it again and use the new address.
-- **Keys do nothing:** click on the page background first (the cursor may be in a text box, or another tab is active). Check that a song is loaded in that slot and the cue is marked. Check the page (`` ` ``) and bank (`Tab`).
-- **Scroll changes the wrong song:** scroll changes the **selected** song only (teal border). Select the song first.
-- **"Could not load song N":** the status line shows the reason. A wrong link or a missing file are the usual causes. The slot stays as it was.
-- **"YouTube blocked the download (bot check)":** YouTube sometimes asks for a login. PySamp then tries the cookies of your browser (Chrome, Safari, Firefox, Edge, Brave), so log in to YouTube in one of them first. On Mac, allow the Keychain prompt for Chrome, or give Terminal "Full Disk Access" for Safari. To force one browser, start with `PYSAMP_BROWSER=firefox`. A local audio file always works.
-- **Download fails:** check the link opens in a browser. YouTube changes often, so a new download may fail until the app is updated. Songs already in the downloads folder still work.
-- **Mac says the app "cannot be opened":** run the `xattr` command in the Install section.
-- **Waveform stays on "Drawing waveform...":** reload the page. If it repeats, send the text from the console window.
+| Problem | Fix |
+|---------|-----|
+| No sound | Check your output device. Raise the song volume (scroll up). In Edit mode press `Space`. |
+| Browser did not open | Copy the `http://127.0.0.1:...` address from the console. |
+| "PySamp is not running" | The app quit. Start it again and use the new address. |
+| Keys do nothing | Click the page background (the cursor may be in a text box). Check the song is loaded, the cue is marked, and the bank (`Tab`) and page (`` ` ``) are right. |
+| Scroll changes the wrong song | Scroll changes the selected song (teal border). Select it first. |
+| "Could not load song N" | The status line gives the reason (bad link, missing file). The slot stays as it was. |
+| "YouTube blocked the download" | Log in to YouTube in Chrome, Safari, Firefox, Edge or Brave. PySamp uses that browser's cookies. On Mac, allow the Keychain prompt. To pick a browser: `PYSAMP_BROWSER=firefox`. A local file always works. |
+| Download fails | Check the link opens in a browser. YouTube changes often, so you may need a newer PySamp. Downloaded songs still work. |
+| Mac says the app "cannot be opened" | Run the `xattr` command from the Install section. |
+| Waveform stays on "Drawing waveform..." | Reload the page. |
 
-## Run from source (Intel Mac, Linux, or to change the code)
+## Run from source
 
 Needs Python 3.10 or newer.
 
@@ -280,10 +235,12 @@ Run the tests:
 cd tests
 ../.venv/bin/python test_engine.py
 ../.venv/bin/python test_server.py
+../.venv/bin/python test_instruments.py
+../.venv/bin/python test_drums.py
 ../.venv/bin/python test_downloader.py
 ```
 
-## Build the packages
+### Build the packages
 
 Run on the OS you want to package for:
 
@@ -292,28 +249,25 @@ Run on the OS you want to package for:
 .venv/bin/python scripts/build.py
 ```
 
-The zip appears in `dist/`. The GitHub Actions workflow (`.github/workflows/build.yml`) builds both Mac and Windows packages when you push a tag like `v0.4.0`.
+The zip appears in `dist/`. GitHub Actions builds the Mac and Windows zips and attaches them to a release when you push a tag like `v1.0.0`.
+
+## Credits
+
+The instrument sounds come from the FluidR3_GM soundfont, as packaged in the gleitz/midi-js-soundfonts project, under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). They are stored inside the app (about 3.7 MB). `scripts/fetch_samples.py` downloads them again. The drum sounds are synthesized by the program.
 
 ## Feedback wanted
 
-For the DJ test, please answer:
-
-1. Is the page clear at a glance? Can you tell which song is selected, where the cues are, and what mode you are in?
-2. Is marking cues with `M` fast enough? Do you miss the beat? Would you want to nudge a cue after marking?
-3. Do `Tab` (bank) and `` ` `` (page) feel natural while playing? Would you prefer other keys?
-4. Is 18 cues per song enough? Is 8 songs enough? Is it a problem that the first key of each row is a selector and not a cue?
-5. Does scroll-for-volume feel good (step size, trackpad momentum, direction)?
-6. What is missing to use it live? (loop, tempo match, key-lock, EQ, mute/solo, crossfade, hold-to-play, master volume, removing a song)
-   Does pitch feel right (step size, range)? Do you need pitch to change tempo only, without changing the key (key-lock)?
-7. Is there delay between key press and sound? Is it worse for the drum kit (Caps Lock)?
-   Do the drums and the 9 instruments sound good enough? Which pads or sounds are missing? Do you need sharps and flats, or a key change?
-   Is the piano layout (white keys on the home row, black keys above, `Z`/`X` octave, `C`/`V` velocity) easy to learn?
-   Does the studio layout (songs on top, keyboard left, recordings right) work for you? What should a take be able to do?
-   Is it right that a cue key stops the other songs unless you hold `Shift`?
-   Recording saves the audio you hear. Is that what you want, or do you want it to save your key presses so you can replay and edit them?
-8. Did the install work first try? Where did you get stuck?
-9. Any crashes? Send the text from the console window and the link you used.
+1. Is the page clear at a glance? Can you tell the selected song, the cues and the mode?
+2. Is marking cues with `M` fast enough?
+3. Do `Tab` and `` ` `` feel natural? Is 18 cues and 8 songs enough?
+4. Is it right that a cue key stops the other songs unless you hold `Shift`?
+5. What is missing to use it live? (loop, tempo match, key lock, EQ, mute/solo, crossfade, master volume)
+6. Is there a delay between key press and sound, especially for drums?
+7. Do the drums and instruments sound good enough? What is missing?
+8. Is the piano layout easy to learn? Does the recordings screen work for you? What should a take be able to do?
+9. Does recording the audio fit your needs, or do you want to record key presses so you can edit them?
+10. Did the install work first try? Any crashes? Send the console text.
 
 ## Note
 
-Downloading audio from YouTube may break YouTube's terms and copyright rules. Use this for personal testing only.
+Downloading audio from YouTube may break YouTube's terms and copyright rules. Use PySamp for personal testing only.
