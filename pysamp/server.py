@@ -66,7 +66,7 @@ class SamplerServer(ThreadingHTTPServer):
             "status": self.status,
             "songs": songs,
             "drum_names": NAMES,
-            "presets": [{"label": i.label, "notes": instruments.key_names(i)} for i in instruments.INSTRUMENTS],
+            "presets": [{"label": i.label, "base": i.base} for i in instruments.INSTRUMENTS],
             "recording": None if frames is None else frames / SAMPLE_RATE,
         }
 
@@ -109,17 +109,20 @@ class SamplerServer(ThreadingHTTPServer):
             if not isinstance(preset, int) or not 0 <= preset < len(instruments.INSTRUMENTS):
                 raise ValueError("bad preset")
             if action == "preset":
-                instruments.notes(preset)
+                instruments.warm(preset)
                 return
-            key, on = cmd["key"], cmd["on"]
-            if not isinstance(key, int) or not 0 <= key < instruments.NUM_KEYS:
-                raise ValueError("bad key")
+            midi, on = cmd["midi"], cmd["on"]
+            if not isinstance(midi, int) or midi not in instruments.midi_range(instruments.INSTRUMENTS[preset]):
+                raise ValueError("bad midi")
             if not isinstance(on, bool):
                 raise ValueError("bad on")
+            velocity = cmd.get("velocity", 1.0)
+            if isinstance(velocity, bool) or not isinstance(velocity, (int, float)) or not 0 < velocity <= 1:
+                raise ValueError("bad velocity")
             if on:
-                self.mixer.note_on(preset, key)
+                self.mixer.note_on(preset, midi, float(velocity))
             else:
-                self.mixer.note_off(preset, key)
+                self.mixer.note_off(preset, midi)
             return
         song = cmd["song"]
         if not isinstance(song, int) or not 0 <= song < NUM_SONGS:

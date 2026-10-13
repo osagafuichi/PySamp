@@ -9,8 +9,9 @@ import soundfile as sf
 from pysamp.engine import SAMPLE_RATE
 
 SAMPLES_DIR = Path(__file__).parent / "samples"
-SCALE = (0, 2, 4, 5, 7, 9, 11, 12, 14, 16)
-NUM_KEYS = 3 * len(SCALE)
+KEYS = 18
+OCTAVE_MIN = -1
+OCTAVE_MAX = 2
 SAMPLE_STEP = 3
 PEAK = 0.4
 END_FADE = 0.02
@@ -46,13 +47,8 @@ def note_name(midi: int) -> str:
     return f"{NAMES[midi % 12]}{midi // 12 - 1}"
 
 
-def midi_for_key(instrument: Instrument, key: int) -> int:
-    row, col = divmod(key, len(SCALE))
-    return instrument.base + 12 * row + SCALE[col]
-
-
-def key_names(instrument: Instrument) -> list[str]:
-    return [note_name(midi_for_key(instrument, key)) for key in range(NUM_KEYS)]
+def midi_range(instrument: Instrument) -> range:
+    return range(instrument.base + 12 * OCTAVE_MIN, instrument.base + 12 * OCTAVE_MAX + KEYS)
 
 
 def sample_notes(instrument: Instrument) -> range:
@@ -86,33 +82,40 @@ def shifted(sample: np.ndarray, semitones: int, loop: bool) -> Note:
     return out.astype(np.float32)[:, None], None
 
 
-_cache: OrderedDict[str, dict[int, Note]] = OrderedDict()
+@dataclass
+class Bank:
+    samples: dict[int, np.ndarray]
+    rendered: dict[int, Note]
+
+
+_cache: OrderedDict[str, Bank] = OrderedDict()
 _lock = threading.Lock()
 
 
-def notes(index: int) -> dict[int, Note]:
-    with _lock:
-        return _notes(index)
-
-
-def _notes(index: int) -> dict[int, Note]:
+def _bank(index: int) -> Bank:
     instrument = INSTRUMENTS[index]
     if instrument.id in _cache:
         _cache.move_to_end(instrument.id)
         return _cache[instrument.id]
     folder = SAMPLES_DIR / instrument.id
-    samples = {midi: read_sample(folder / f"{note_name(midi)}.ogg") for midi in sample_notes(instrument)}
-    rendered = {}
-    for key in range(NUM_KEYS):
-        midi = midi_for_key(instrument, key)
-        if midi not in rendered:
-            nearest = min(samples, key=lambda m: abs(m - midi))
-            rendered[midi] = shifted(samples[nearest], midi - nearest, instrument.loop)
-    _cache[instrument.id] = rendered
+    bank = Bank({midi: read_sample(folder / f"{note_name(midi)}.ogg") for midi in sample_notes(instrument)}, {})
+    _cache[instrument.id] = bank
     while len(_cache) > CACHE_SIZE:
         _cache.popitem(last=False)
-    return rendered
+    return bank
 
 
-def note_data(index: int, key: int) -> Note:
-    return notes(index)[midi_for_key(INSTRUMENTS[index], key)]
+def note_data(index: int, midi: int) -> Note:
+    instrument = INSTRUMENTS[index]
+    with _lock:
+        bank = _bank(index)
+        if midi not in bank.rendered:
+            nearest = min(bank.samples, key=lambda m: abs(m - midi))
+            bank.rendered[midi] = shifted(bank.samples[nearest], midi - nearest, instrument.loop)
+        return bank.rendered[midi]
+
+
+def warm(index: int) -> None:
+    instrument = INSTRUMENTS[index]
+    for midi in range(instrument.base, instrument.base + KEYS):
+        note_data(index, midi)

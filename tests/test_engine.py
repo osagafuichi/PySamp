@@ -342,38 +342,38 @@ def test_notes_play_and_release():
     piano, organ = 0, 2
     assert instruments.INSTRUMENTS[organ].label == "Organ"
     mixer = Mixer()
-    mixer.note_on(piano, 3)
-    data, loop = instruments.note_data(piano, 3)
+    mixer.note_on(piano, 63)
+    data, loop = instruments.note_data(piano, 63)
     assert loop is None
     np.testing.assert_allclose(pull(mixer), np.broadcast_to(data[:FRAMES], (FRAMES, 2)))
     np.testing.assert_allclose(pull(mixer), np.broadcast_to(data[FRAMES : 2 * FRAMES], (FRAMES, 2)))
 
     mixer = Mixer()
-    mixer.note_on(piano, 3)
-    mixer.note_on(piano, 4)
-    mixer.note_off(piano, 3)
+    mixer.note_on(piano, 63)
+    mixer.note_on(piano, 64)
+    mixer.note_off(piano, 63)
     release = int(instruments.INSTRUMENTS[piano].release * SAMPLE_RATE)
     for _ in range(release // FRAMES + 2):
         pull(mixer)
-    assert [v.key for v in mixer._voices] == [4], "note_off fades out only its own key, then drops the voice"
+    assert [v.key for v in mixer._voices] == [64], "note_off fades out only its own key, then drops the voice"
 
     mixer = Mixer()
-    mixer.note_on(piano, 3)
+    mixer.note_on(piano, 63)
     before = pull(mixer)
-    mixer.note_off(piano, 3)
+    mixer.note_off(piano, 63)
     faded = pull(mixer)
-    unfaded = np.broadcast_to(instruments.note_data(piano, 3)[0][FRAMES : 2 * FRAMES], (FRAMES, 2))
+    unfaded = np.broadcast_to(instruments.note_data(piano, 63)[0][FRAMES : 2 * FRAMES], (FRAMES, 2))
     assert np.abs(faded[-1]).max() < np.abs(unfaded[-1]).max() + 1e-9 and np.abs(faded).sum() < np.abs(unfaded).sum()
     assert before.any()
 
     mixer = Mixer()
-    mixer.note_on(organ, 0)
-    data, loop = instruments.note_data(organ, 0)
+    mixer.note_on(organ, 60)
+    data, loop = instruments.note_data(organ, 60)
     assert loop is not None
     for _ in range(len(data) // FRAMES + 40):
         out = pull(mixer)
     assert out.any() and len(mixer._voices) == 1, "a looping note keeps sounding past the end of its sample"
-    mixer.note_off(organ, 0)
+    mixer.note_off(organ, 60)
     for _ in range(int(instruments.INSTRUMENTS[organ].release * SAMPLE_RATE) // FRAMES + 2):
         pull(mixer)
     assert not mixer._voices and not pull(mixer).any()
@@ -381,14 +381,21 @@ def test_notes_play_and_release():
     mixer = Mixer()
     mixer.note_on(-1, 0)
     mixer.note_on(9, 0)
-    mixer.note_on(piano, -1)
-    mixer.note_on(piano, instruments.NUM_KEYS)
+    mixer.note_on(piano, 47 - 12)
+    mixer.note_on(piano, 48 + 12 * instruments.OCTAVE_MAX + instruments.KEYS)
     mixer.note_off(99, 0)
     assert not mixer._voices and not pull(mixer).any(), "bad presets and keys are ignored"
 
     mixer = Mixer()
+    mixer.note_on(piano, 60, 1.0)
+    full = pull(mixer)
+    mixer = Mixer()
+    mixer.note_on(piano, 60, 0.5)
+    np.testing.assert_allclose(pull(mixer), full * 0.5, atol=1e-6)
+
+    mixer = Mixer()
     for _ in range(MAX_VOICES + 10):
-        mixer.note_on(piano, 0)
+        mixer.note_on(piano, 60)
     assert len(mixer._voices) == MAX_VOICES
 
 

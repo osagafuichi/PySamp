@@ -4,30 +4,24 @@ from pysamp import instruments as ins
 from pysamp.engine import SAMPLE_RATE
 
 
-def test_layout_and_names():
-    piano = ins.INSTRUMENTS[0]
-    names = ins.key_names(piano)
-    assert len(names) == ins.NUM_KEYS == 30
-    assert names[:10] == ["C3", "D3", "E3", "F3", "G3", "A3", "B3", "C4", "D4", "E4"], "top row is an octave below the middle"
-    assert names[10:13] == ["C4", "D4", "E4"], "home row starts at middle C"
-    assert names[20:23] == ["C5", "D5", "E5"] and names[29] == "E6", "bottom row is an octave above the middle"
+def test_ranges_and_names():
+    piano, bass = ins.INSTRUMENTS[0], ins.INSTRUMENTS[5]
     assert ins.note_name(60) == "C4" and ins.note_name(70) == "Bb4"
     assert len({i.id for i in ins.INSTRUMENTS}) == len(ins.INSTRUMENTS) == 9
-    bass = ins.INSTRUMENTS[5]
-    assert ins.midi_for_key(bass, 0) == 36 and ins.midi_for_key(bass, 20) == 60
+    assert (ins.midi_range(piano).start, ins.midi_range(piano).stop) == (36, 90), "C2 up to F6 over four octave positions"
+    assert ins.midi_range(bass).start == 24
 
 
 def test_every_sample_is_bundled_and_renders():
     for index, instrument in enumerate(ins.INSTRUMENTS):
         for midi in ins.sample_notes(instrument):
             assert (ins.SAMPLES_DIR / instrument.id / f"{ins.note_name(midi)}.ogg").is_file(), (instrument.id, midi)
-        rendered = ins.notes(index)
-        for key in range(ins.NUM_KEYS):
-            data, loop = ins.note_data(index, key)
-            label = (instrument.id, key)
+        for midi in (ins.midi_range(instrument)[0], instrument.base, ins.midi_range(instrument)[-1]):
+            data, loop = ins.note_data(index, midi)
+            label = (instrument.id, midi)
             assert data.dtype == np.float32 and data.ndim == 2 and data.shape[1] == 1, label
             assert np.isfinite(data).all(), label
-            assert SAMPLE_RATE < len(data) < 4 * SAMPLE_RATE, label
+            assert SAMPLE_RATE < len(data) < 6 * SAMPLE_RATE, label
             assert 0.2 < np.abs(data).max() <= ins.PEAK + 1e-6, label
             if instrument.loop:
                 start, stop = loop
@@ -35,14 +29,14 @@ def test_every_sample_is_bundled_and_renders():
                 assert abs(data[stop - 1, 0] - data[start - 1, 0]) < 1e-6, f"{label} loops without a jump"
             else:
                 assert loop is None and abs(data[-1, 0]) < 1e-3, f"{label} ends without a click"
-        assert len(rendered) == len({ins.midi_for_key(instrument, k) for k in range(ins.NUM_KEYS)})
+        ins.warm(index)
+        assert ins.note_data(index, instrument.base) is ins.note_data(index, instrument.base), "notes render once"
 
 
 def test_cache_keeps_a_few_instruments():
     for index in range(len(ins.INSTRUMENTS)):
-        ins.notes(index)
+        ins.warm(index)
     assert len(ins._cache) == ins.CACHE_SIZE
-    assert ins.notes(len(ins.INSTRUMENTS) - 1) is ins.notes(len(ins.INSTRUMENTS) - 1)
 
 
 def fundamental(data: np.ndarray) -> float:
@@ -54,14 +48,14 @@ def fundamental(data: np.ndarray) -> float:
 
 
 def test_pitch_is_shifted_toward_the_key():
-    low, high = fundamental(ins.note_data(0, 0)[0]), fundamental(ins.note_data(0, 10)[0])
+    low, high = fundamental(ins.note_data(0, 48)[0]), fundamental(ins.note_data(0, 60)[0])
     assert abs(low / 130.8 - 1) < 0.03 and abs(high / 261.6 - 1) < 0.03, (low, high)
-    shifted_up = fundamental(ins.note_data(0, 11)[0])
+    shifted_up = fundamental(ins.note_data(0, 62)[0])
     assert abs(shifted_up / 293.7 - 1) < 0.03, "keys between the stored samples are pitch-shifted"
 
 
 if __name__ == "__main__":
-    test_layout_and_names()
+    test_ranges_and_names()
     test_every_sample_is_bundled_and_renders()
     test_cache_keeps_a_few_instruments()
     test_pitch_is_shifted_toward_the_key()

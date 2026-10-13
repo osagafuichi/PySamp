@@ -23,10 +23,11 @@ PITCH_MAX = 2.0
 
 
 class Voice:
-    __slots__ = ("data", "pos", "group", "key", "loop", "fade", "fade_left")
+    __slots__ = ("data", "pos", "group", "key", "loop", "gain", "fade", "fade_left")
 
-    def __init__(self, data, group=0, key=None, loop=None):
+    def __init__(self, data, group=0, key=None, loop=None, gain=1.0):
         self.data = data
+        self.gain = gain
         self.pos = 0
         self.group = group
         self.key = key
@@ -224,17 +225,19 @@ class Mixer:
             self._voices.append(Voice(data, group))
             del self._voices[:-MAX_VOICES]
 
-    def note_on(self, preset: int, key: int) -> None:
+    def note_on(self, preset: int, midi: int, velocity: float = 1.0) -> None:
         from pysamp import instruments
 
-        if not 0 <= preset < len(instruments.INSTRUMENTS) or not 0 <= key < instruments.NUM_KEYS:
+        if not 0 <= preset < len(instruments.INSTRUMENTS):
             return
-        data, loop = instruments.note_data(preset, key)
+        if midi not in instruments.midi_range(instruments.INSTRUMENTS[preset]):
+            return
+        data, loop = instruments.note_data(preset, midi)
         with self._lock:
-            self._voices.append(Voice(data, key=key, loop=loop))
+            self._voices.append(Voice(data, key=midi, loop=loop, gain=min(max(velocity, 0.0), 1.0)))
             del self._voices[:-MAX_VOICES]
 
-    def note_off(self, preset: int, key: int) -> None:
+    def note_off(self, preset: int, midi: int) -> None:
         from pysamp import instruments
 
         if not 0 <= preset < len(instruments.INSTRUMENTS):
@@ -242,7 +245,7 @@ class Mixer:
         fade = max(int(instruments.INSTRUMENTS[preset].release * SAMPLE_RATE), 1)
         with self._lock:
             for voice in self._voices:
-                if voice.key == key and not voice.fade:
+                if voice.key == midi and not voice.fade:
                     voice.fade = voice.fade_left = fade
 
     def start(self) -> None:
@@ -295,6 +298,8 @@ class Mixer:
                 track.layers = alive
             for voice in self._voices:
                 chunk = voice.next_chunk(frames)
+                if voice.gain != 1.0:
+                    chunk = chunk * voice.gain
                 if voice.fade:
                     ramp = np.arange(voice.fade_left, voice.fade_left - len(chunk), -1) / voice.fade
                     chunk = chunk * np.maximum(ramp, 0)[:, None].astype(np.float32)

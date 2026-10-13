@@ -170,15 +170,16 @@ def run() -> None:
         assert len(mixer._voices) == 2
         mixer._voices.clear()
 
-        # Instrument presets: labels and key names are listed, notes start and release voices.
+        # Instrument presets: labels and bases are listed, notes start and release voices.
         presets = c.get_json("/state")["presets"]
         assert len(presets) == 9 and presets[0]["label"] == "Grand Piano" and presets[2]["label"] == "Organ"
-        assert all(len(p["notes"]) == 30 for p in presets)
+        assert presets[0]["base"] == 48 and presets[5]["base"] == 36
         c.post({"action": "preset", "preset": 1})
-        c.post({"action": "note", "preset": 0, "key": 5, "on": True})
-        c.post({"action": "note", "preset": 0, "key": 6, "on": True})
-        assert [v.key for v in mixer._voices] == [5, 6]
-        c.post({"action": "note", "preset": 0, "key": 5, "on": False})
+        c.post({"action": "note", "preset": 0, "midi": 65, "on": True, "velocity": 0.5})
+        c.post({"action": "note", "preset": 0, "midi": 66, "on": True})
+        assert [v.key for v in mixer._voices] == [65, 66]
+        assert [v.gain for v in mixer._voices] == [0.5, 1.0]
+        c.post({"action": "note", "preset": 0, "midi": 65, "on": False})
         assert [bool(v.fade) for v in mixer._voices] == [True, False]
         mixer._voices.clear()
 
@@ -225,11 +226,14 @@ def run() -> None:
         assert status_of(lambda: c.post({"action": "preset", "preset": 9})) == 400
         assert status_of(lambda: c.post({"action": "preset", "preset": "1"})) == 400
         assert status_of(lambda: c.post({"action": "preset"})) == 400
-        assert status_of(lambda: c.post({"action": "note", "preset": -1, "key": 0, "on": True})) == 400
-        assert status_of(lambda: c.post({"action": "note", "preset": 0, "key": 30, "on": True})) == 400
-        assert status_of(lambda: c.post({"action": "note", "preset": 0, "key": "1", "on": True})) == 400
-        assert status_of(lambda: c.post({"action": "note", "preset": 0, "key": 0, "on": 1})) == 400
-        assert status_of(lambda: c.post({"action": "note", "preset": 0, "key": 0})) == 400
+        assert status_of(lambda: c.post({"action": "note", "preset": -1, "midi": 60, "on": True})) == 400
+        assert status_of(lambda: c.post({"action": "note", "preset": 0, "midi": 35, "on": True})) == 400
+        assert status_of(lambda: c.post({"action": "note", "preset": 0, "midi": 90, "on": True})) == 400
+        assert status_of(lambda: c.post({"action": "note", "preset": 0, "midi": "60", "on": True})) == 400
+        assert status_of(lambda: c.post({"action": "note", "preset": 0, "midi": 60, "on": 1})) == 400
+        assert status_of(lambda: c.post({"action": "note", "preset": 0, "midi": 60})) == 400
+        assert status_of(lambda: c.post({"action": "note", "preset": 0, "midi": 60, "on": True, "velocity": 0})) == 400
+        assert status_of(lambda: c.post({"action": "note", "preset": 0, "midi": 60, "on": True, "velocity": 2})) == 400
         assert not mixer._voices
         assert status_of(lambda: c.post({"action": "remove_cue", "song": 0})) == 400
         assert status_of(lambda: c.post({"action": "remove_cue", "song": 0, "cue": NUM_CUES})) == 400
