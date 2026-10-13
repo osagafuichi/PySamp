@@ -175,7 +175,7 @@ If **Caps Lock is on** while you record, the screen changes:
 ## The screen
 
 - **Top bar:** mode, bank, page, **Record**, **Quit**. The active buttons are teal.
-- **Song panel:** badge (selector key), title, time, cue count, `playing` or `stopped`. In the waveform, teal is played, grey is still to come, the white line is the playhead. Orange flags are cues on this page. Below it: volume bar, pitch bar (click it to reset), and the load box.
+- **Song panel:** badge (selector key), title, time, cue count, `playing` or `stopped`. In the waveform, teal is played, grey is still to come, the white line is the playhead. Orange flags are cues on this page. Below it: volume bar, pitch bar, and the load box. Drag the volume bar or the pitch bar with the mouse. The pitch bar snaps to normal near the middle. Double-click the pitch bar or its number to reset it.
 - **Status line:** what just happened. **Help line:** the keys for the current mode.
 
 You can also use the mouse: click a song to select it, click an orange flag to play that cue, drag on the waveform (Edit mode) to move the playhead, and click the mode, bank and page buttons.
