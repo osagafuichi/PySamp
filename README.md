@@ -146,21 +146,49 @@ A cue key without `Shift` replaces the overlaps: only one playhead stays. Pause 
 
 A song that stops because you triggered another one keeps its place. Select it and press `Space` (Edit mode) to continue it. A cue key with no cue set does nothing, so it never stops anything. The same rule applies to cue keys in Edit mode and to clicking an orange cue flag (`Shift` + click keeps the others playing).
 
-### Caps Lock: drum kit
+### Caps Lock: instruments and drums
 
-Turn **Caps Lock on** and the 40 keys from `1` to `/` become drum pads. A grid of keycaps appears on the right and shows what each key plays. The song panels stay visible on the left (narrower), and a teal **DRUMS** tag appears in the top bar. The songs keep playing. On a window narrower than 1000 px the grid goes below the songs. Turn Caps Lock off to go back to normal. `Tab`, `` ` ``, `Enter`, `Up` / `Down`, `Space` and the other non-letter keys keep their normal job. You can also click a pad.
+Turn **Caps Lock on** and the keyboard becomes an instrument. The number row picks the sound. The 30 letter keys (`Q` to `P`, `A` to `;`, `Z` to `/`) play it. A preset strip and a grid of keycaps appear on the right and show what each key plays. The song panels stay visible on the left (narrower), and a teal tag with the sound name appears in the top bar. The songs keep playing. On a window narrower than 1000 px the grid goes below the songs. Turn Caps Lock off to go back to normal. `Tab`, `` ` ``, `Enter`, `Up` / `Down`, `Space` and the other non-letter keys keep their normal job. You can also click a preset or a key.
+
+| Key | Sound |
+|-----|-------|
+| `1` | Grand Piano |
+| `2` | Electric Piano |
+| `3` | Organ |
+| `4` | Strings |
+| `5` | Guitar |
+| `6` | Bass |
+| `7` | Choir |
+| `8` | Synth Lead |
+| `9` | Brass |
+| `0` | Drum kit (the default when you turn Caps Lock on) |
+
+**Instruments.** Each letter row is one octave of the C major scale, and each row is an octave above the one below it. `Z` is the lowest note and `P` the highest. (Bass is one octave lower.)
+
+| Row | Keys | Notes (piano) |
+|-----|------|---------------|
+| Top | `Q W E R T Y U I O P` | C5 D5 E5 F5 G5 A5 B5 C6 D6 E6 |
+| Home | `A S D F G H J K L ;` | C4 D4 E4 F4 G4 A4 B4 C5 D5 E5 |
+| Bottom | `Z X C V B N M , . /` | C3 D3 E3 F3 G3 A3 B3 C4 D4 E4 |
+
+- A note plays while you hold the key and fades out when you let go. Organ, Strings, Choir, Synth Lead and Brass loop, so they sustain as long as you hold. Piano, Electric Piano, Guitar and Bass die away by themselves, like the real thing.
+- You can hold several keys for a chord. Up to 32 sounds can ring at once. A held key does not repeat.
+- Changing the sound while you hold keys does not cut them. They fade out when you let go.
+- Notes are not affected by song volume. `Space` (stop all) does not stop them.
+
+**Drum kit** (`0`).
 
 | Row | Keys | Pads |
 |-----|------|------|
-| Number row | `1 2 3 4 5 6 7 8 9 0` | Cowbell, Clave, Wood Block, Triangle, Tambo, Conga High, Conga Low, Bongo, Maracas, Laser |
-| Top letter row | `Q W E R T Y U I O P` | Closed Hat, Tight Hat, Open Hat, Pedal Hat, Shaker, Ride, Ride Bell, Crash, Dark Crash, Splash |
-| Home row | `A S D F G H J K L ;` | Snare, Boom Snare, House Snare, Clap, House Clap, Rimshot, Side Stick, Snap, Ghost Snare, Gated Snare |
-| Bottom row | `Z X C V B N M , . /` | 808 Kick, Boom Kick, House Kick, Punch Kick, Tight Kick, Floor Tom, Low Tom, Mid Tom, High Tom, Electro Tom |
+| Top | `Q W E R T Y U I O P` | Closed Hat, Tight Hat, Open Hat, Pedal Hat, Shaker, Ride, Ride Bell, Crash, Dark Crash, Splash |
+| Home | `A S D F G H J K L ;` | Snare, Boom Snare, House Snare, Clap, House Clap, Rimshot, Side Stick, Snap, Ghost Snare, Gated Snare |
+| Bottom | `Z X C V B N M , . /` | 808 Kick, Boom Kick, House Kick, Punch Kick, Tight Kick, Floor Tom, Low Tom, Mid Tom, High Tom, Electro Tom |
 
-- The sounds are made by the program itself (hip-hop, house and classic kit sounds mixed). There are no sample files.
+- The drum sounds are made by the program itself (hip-hop, house and classic kit sounds mixed).
 - The four hats cut each other off, so a closed hat ends an open hat.
-- Holding a key does not repeat the hit. Up to 32 drum sounds can ring at once.
-- Drums are not affected by song volume, and `Space` (stop all) in Play mode does not stop them.
+- Holding a key does not repeat the hit. Drums are not affected by song volume, and `Space` does not stop them.
+
+**Sound credits.** The instrument sounds are from the FluidR3_GM soundfont, as packaged in the gleitz/midi-js-soundfonts project, which licenses them under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). They are stored inside the app (about 3.7 MB), so no internet is needed. `scripts/fetch_samples.py` downloads them again.
 
 ### Record
 
@@ -197,9 +225,11 @@ Click **Quit** in the page, or press `Ctrl+C` in the console window. Closing the
 - Sound at high pitch settings may be a little rough (simple resampling).
 - Volume is per song only. The master level is your system volume.
 - Many keyboards cannot read more than about 6 keys at once.
-- The drum sounds are simple synthesized ones, and there is no drum volume or pitch yet. A drum hit goes through the browser and the program, so it can be a few milliseconds slower than a real drum pad.
+- The drum sounds are simple synthesized ones. There is no volume, pitch, sharp or flat, or key change for drums and instruments. Instruments only play the C major scale. A note or drum hit goes through the browser and the program, so it can be a few milliseconds slower than a real instrument.
+- The instruments are played from small sample sets, and the notes between them are pitch-shifted, so some notes sound less natural. A held note on Piano, Electric Piano, Guitar or Bass goes silent after a few seconds. The sounds have not been judged by ear by the author yet.
 - Recording saves the final audio only. It does not save your key presses, so you cannot replay or edit a performance. There is no pause, and no trimming of the silence at the start.
 - The page reads the Caps Lock state from key presses and mouse moves. If the grid does not appear right after you press Caps Lock, press any key or move the mouse.
+- The first note of an instrument you have not used yet can be a little late, because its sound is loaded then. Pressing the number key loads it ahead of time.
 
 ## Troubleshooting
 
@@ -260,7 +290,8 @@ For the DJ test, please answer:
 6. What is missing to use it live? (loop, tempo match, key-lock, EQ, mute/solo, crossfade, hold-to-play, master volume, removing a song)
    Does pitch feel right (step size, range)? Do you need pitch to change tempo only, without changing the key (key-lock)?
 7. Is there delay between key press and sound? Is it worse for the drum kit (Caps Lock)?
-   Do the drums sound good enough? Which pads or sounds are missing? Is the layout easy to learn?
+   Do the drums and the 9 instruments sound good enough? Which pads or sounds are missing? Do you need sharps and flats, or a key change?
+   Is the note layout (one octave per row) easy to learn?
    Is it right that a cue key stops the other songs unless you hold `Shift`?
    Recording saves the audio you hear. Is that what you want, or do you want it to save your key presses so you can replay and edit them?
 8. Did the install work first try? Where did you get stuck?
