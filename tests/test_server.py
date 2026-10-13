@@ -203,6 +203,32 @@ def run() -> None:
         c.post({"action": "record", "on": False})
         assert len(list(server_module.RECORD_DIR.glob("PySamp-*.wav"))) == 2, "a second take never overwrites the first"
 
+        # Takes: a finished recording becomes a playable take with its own peaks.
+        listed = c.get_json("/state")["takes"]
+        assert len(listed) == 1 and listed[0]["title"] == "Take 1" and listed[0]["total"] == SAMPLE_RATE and not listed[0]["playing"]
+        peaks = c.get_json("/peaks/take/0")
+        assert len(peaks["min"]) == len(peaks["max"]) == 1000
+        assert status_of(lambda: c.get_json("/peaks/take/5")) == 404
+        c.post({"action": "take_toggle", "take": 0})
+        assert c.get_json("/state")["takes"][0]["playing"]
+        c.post({"action": "take_seek", "take": 0, "fraction": 0.5})
+        assert abs(c.get_json("/state")["takes"][0]["pos"] - SAMPLE_RATE / 2) < SAMPLE_RATE / 20
+        c.post({"action": "stop_all"})
+        assert not c.get_json("/state")["takes"][0]["playing"]
+        c.post({"action": "take_to_song", "take": 0, "song": 5})
+        for _ in range(100):
+            if c.status().startswith("Loaded song 6"):
+                break
+            time.sleep(0.05)
+        assert c.status().startswith("Loaded song 6") and str(server_module.RECORD_DIR) in c.status() and ".wav" in c.status(), "a take can become a song"
+        assert status_of(lambda: c.post({"action": "take_toggle", "take": 1})) == 400
+        assert status_of(lambda: c.post({"action": "take_toggle", "take": "0"})) == 400
+        assert status_of(lambda: c.post({"action": "take_toggle"})) == 400
+        assert status_of(lambda: c.post({"action": "take_to_song", "take": 0, "song": 9})) == 400
+        assert status_of(lambda: c.post({"action": "take_nope", "take": 0})) == 400
+        c.post({"action": "take_delete", "take": 0})
+        assert c.get_json("/state")["takes"] == []
+
         # Marking in an empty slot reports it; a full song reports it.
         c.post({"action": "mark", "song": 3})
         assert c.status() == "No song in this slot."

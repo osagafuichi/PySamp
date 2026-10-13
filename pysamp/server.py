@@ -11,7 +11,7 @@ import numpy as np
 from pysamp import instruments
 from pysamp.cuestore import save_cues
 from pysamp.drums import NAMES
-from pysamp.engine import NUM_CUES, NUM_PADS, NUM_SONGS, SAMPLE_RATE, Mixer
+from pysamp.engine import NUM_CUES, NUM_PADS, NUM_SONGS, SAMPLE_RATE, Mixer, load_track
 from pysamp.loader import load_source
 
 WEB_DIR = Path(__file__).parent / "web"
@@ -35,6 +35,7 @@ class SamplerServer(ThreadingHTTPServer):
         self.status = "Select a song, press space to play, m to mark cues."
         self.quit_event = threading.Event()
         self.peak_cache: dict[str, dict] = {}
+        self.take_count = 0
 
     @property
     def url(self) -> str:
@@ -61,6 +62,16 @@ class SamplerServer(ThreadingHTTPServer):
                 }
             )
         frames = self.mixer.recorded_frames()
+        takes = [
+            {
+                "id": take.track_id,
+                "title": take.title,
+                "pos": take.pos,
+                "total": len(take.data),
+                "playing": take.playing,
+            }
+            for take in list(self.mixer.takes)
+        ]
         return {
             "rate": SAMPLE_RATE,
             "status": self.status,
@@ -68,10 +79,18 @@ class SamplerServer(ThreadingHTTPServer):
             "drum_names": NAMES,
             "presets": [{"label": i.label, "base": i.base} for i in instruments.INSTRUMENTS],
             "recording": None if frames is None else frames / SAMPLE_RATE,
+            "level": round(self.mixer.level, 3),
+            "takes": takes,
         }
 
     def peaks(self, song: int) -> dict | None:
-        track = self.mixer.tracks[song]
+        return self.peaks_of(self.mixer.tracks[song])
+
+    def take_peaks(self, index: int) -> dict | None:
+        takes = list(self.mixer.takes)
+        return self.peaks_of(takes[index] if index < len(takes) else None)
+
+    def peaks_of(self, track) -> dict | None:
         if track is None:
             return None
         if track.track_id not in self.peak_cache:
@@ -103,6 +122,9 @@ class SamplerServer(ThreadingHTTPServer):
             if not isinstance(pad, int) or not 0 <= pad < NUM_PADS:
                 raise ValueError("bad pad")
             self.mixer.hit(pad)
+            return
+        if action.startswith("take_"):
+            self.take_command(action, cmd)
             return
         if action in ("note", "preset"):
             preset = cmd["preset"]
@@ -169,11 +191,34 @@ class SamplerServer(ThreadingHTTPServer):
         else:
             raise ValueError("bad action")
 
+    def take_command(self, action: str, cmd: dict) -> None:
+        index = cmd["take"]
+        if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index < len(self.mixer.takes):
+            raise ValueError("bad take")
+        if action == "take_toggle":
+            self.mixer.toggle_take(index)
+        elif action == "take_seek":
+            self.mixer.seek_take(index, float(cmd["fraction"]))
+        elif action == "take_delete":
+            self.mixer.remove_take(index)
+            self.status = "Removed the take from the list. The wav file is still saved."
+        elif action == "take_to_song":
+            song = cmd["song"]
+            if not isinstance(song, int) or isinstance(song, bool) or not 0 <= song < NUM_SONGS:
+                raise ValueError("bad song")
+            path = self.mixer.takes[index].path
+            if path is not None:
+                self.status = f"Loading song {song + 1}..."
+                threading.Thread(target=self.load, args=(song, str(path)), daemon=True).start()
+        else:
+            raise ValueError("bad action")
+
     def record(self, on: bool) -> None:
         if not on:
             stopped = self.mixer.stop_recording()
             if stopped is not None:
                 self.status = f"Saved recording ({fmt_time(stopped[1])}): {stopped[0]}"
+                self.keep_take(*stopped)
             return
         if self.mixer.recorded_frames() is not None:
             return
@@ -190,6 +235,18 @@ class SamplerServer(ThreadingHTTPServer):
             self.status = f"Could not start recording: {exc}"
             return
         self.status = "Recording the mix. Press \\ again to stop and save."
+
+    def keep_take(self, path: Path, frames: int) -> None:
+        if frames == 0:
+            return
+        try:
+            take = load_track(path, f"Take {self.take_count + 1}")
+        except Exception as exc:
+            self.status += f" (could not open it as a take: {exc})"
+            return
+        self.take_count += 1
+        take.path = path
+        self.mixer.add_take(take)
 
     def mark(self, song: int) -> None:
         track = self.mixer.tracks[song]
@@ -247,6 +304,12 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(200, json.dumps(self.server.state()).encode())
         elif path == "/events":
             self.stream_events()
+        elif path.startswith("/peaks/take/") and path[12:].isdigit():
+            peaks = self.server.take_peaks(int(path[12:]))
+            if peaks is None:
+                self.reply(404, b"no such take", "text/plain")
+            else:
+                self.reply(200, json.dumps(peaks).encode())
         elif path.startswith("/peaks/") and path[7:].isdigit() and int(path[7:]) < NUM_SONGS:
             peaks = self.server.peaks(int(path[7:]))
             if peaks is None:

@@ -5,7 +5,7 @@ import numpy as np
 import soundfile as sf
 
 from pysamp.cuestore import load_cues, save_cues
-from pysamp.engine import MAX_LAYERS, MAX_VOICES, NUM_CUES, NUM_PADS, SAMPLE_RATE, Mixer, load_track
+from pysamp.engine import MAX_LAYERS, MAX_TAKES, MAX_VOICES, NUM_CUES, NUM_PADS, SAMPLE_RATE, Mixer, load_track
 
 FRAMES = 256
 
@@ -436,6 +436,47 @@ def test_recording_captures_the_mix():
         assert mixer.recorded_frames() is None, "stop() finishes an open recording"
 
 
+def test_takes_play_seek_and_remove():
+    with tempfile.TemporaryDirectory() as d:
+        wav = Path(d) / "ramp.wav"
+        make_ramp_wav(wav)
+        mixer = Mixer()
+        for _ in range(MAX_TAKES + 2):
+            mixer.add_take(load_track(wav, "take"))
+        assert len(mixer.takes) == MAX_TAKES, "the oldest takes drop off the list"
+        assert not pull(mixer).any(), "a new take is silent until it is played"
+
+        mixer.toggle_take(0)
+        assert mixer.takes[0].playing and pull(mixer).any()
+        mixer.toggle_take(0)
+        assert not mixer.takes[0].playing
+        mixer.toggle_take(99)
+        mixer.seek_take(1, 0.5)
+        assert mixer.takes[1].playing and mixer.takes[1].pos > 0, "seeking a take also plays it"
+        mixer.seek_take(99, 0.5)
+        mixer.stop_all()
+        assert not any(t.playing for t in mixer.takes), "stop_all stops takes too"
+
+        mixer.toggle_take(2)
+        mixer.takes[2].pos = len(mixer.takes[2].data)
+        mixer.takes[2].playing = False
+        mixer.toggle_take(2)
+        assert mixer.takes[2].pos == 0 and mixer.takes[2].playing, "a finished take restarts from the top"
+        assert mixer.remove_take(0) and len(mixer.takes) == MAX_TAKES - 1
+        assert not mixer.remove_take(MAX_TAKES) and not mixer.remove_take(-1)
+
+        mixer = Mixer()
+        mixer.add_take(load_track(wav, "take"))
+        mixer.toggle_take(0)
+        out = Path(d) / "layered.wav"
+        mixer.start_recording(out)
+        pull(mixer)
+        assert mixer.level > 0, "level follows the mix while recording"
+        mixer.stop_recording()
+        assert mixer.level == 0
+        assert np.abs(sf.read(str(out))[0]).max() > 0, "a playing take is part of the next recording"
+
+
 def test_cue_store_roundtrip():
     with tempfile.TemporaryDirectory() as d:
         cue_dir = Path(d)
@@ -460,5 +501,6 @@ if __name__ == "__main__":
     test_drums_play_over_songs()
     test_notes_play_and_release()
     test_recording_captures_the_mix()
+    test_takes_play_seek_and_remove()
     test_cue_store_roundtrip()
     print("engine tests passed")

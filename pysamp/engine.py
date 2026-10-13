@@ -1,3 +1,4 @@
+import itertools
 import threading
 from pathlib import Path
 
@@ -14,6 +15,7 @@ NUM_SONGS = NUM_ROWS * NUM_BANKS
 NUM_PADS = 30
 MAX_VOICES = 32
 MAX_LAYERS = 8
+MAX_TAKES = 8
 CUES_PER_PAGE = 9
 NUM_PAGES = 2
 NUM_CUES = CUES_PER_PAGE * NUM_PAGES
@@ -65,6 +67,7 @@ class Track:
         self.active_cue: int | None = None
         self.layers: list[float] = []
         self.cues: list[int | None] = [None] * NUM_CUES
+        self.path: Path | None = None
 
 
 def load_track(path: Path, title: str | None = None, track_id: str | None = None) -> Track:
@@ -84,6 +87,8 @@ def load_track(path: Path, title: str | None = None, track_id: str | None = None
 class Mixer:
     def __init__(self):
         self.tracks: list[Track | None] = [None] * NUM_SONGS
+        self.takes: list[Track] = []
+        self.level = 0.0
         self._voices: list[Voice] = []
         self._lock = threading.Lock()
         self._stream: sd.OutputStream | None = None
@@ -94,10 +99,12 @@ class Mixer:
         recorder = Recorder(path, SAMPLE_RATE)
         with self._lock:
             self._recorder = recorder
+            self.level = 0.0
 
     def stop_recording(self) -> tuple[Path, int] | None:
         with self._lock:
             recorder, self._recorder = self._recorder, None
+            self.level = 0.0
         if recorder is None:
             return None
         recorder.finish()
@@ -106,6 +113,37 @@ class Mixer:
     def recorded_frames(self) -> int | None:
         recorder = self._recorder
         return None if recorder is None else recorder.frames
+
+    def add_take(self, track: Track) -> None:
+        with self._lock:
+            self.takes.append(track)
+            del self.takes[:-MAX_TAKES]
+
+    def remove_take(self, index: int) -> bool:
+        with self._lock:
+            if not 0 <= index < len(self.takes):
+                return False
+            del self.takes[index]
+            return True
+
+    def toggle_take(self, index: int) -> None:
+        with self._lock:
+            if not 0 <= index < len(self.takes):
+                return
+            take = self.takes[index]
+            if take.playing:
+                take.playing = False
+                return
+            if take.pos >= len(take.data):
+                take.pos = 0
+            take.playing = True
+
+    def seek_take(self, index: int, fraction: float) -> None:
+        with self._lock:
+            if 0 <= index < len(self.takes):
+                take = self.takes[index]
+                take.pos = min(max(int(fraction * len(take.data)), 0), len(take.data) - 1)
+                take.playing = True
 
     def set_track(self, song: int, track: Track) -> None:
         with self._lock:
@@ -208,7 +246,7 @@ class Mixer:
 
     def stop_all(self) -> None:
         with self._lock:
-            for track in self.tracks:
+            for track in itertools.chain(self.tracks, self.takes):
                 if track is not None:
                     track.playing = False
                     track.layers.clear()
@@ -281,7 +319,7 @@ class Mixer:
     def _callback(self, outdata, frames, time, status) -> None:
         outdata.fill(0)
         with self._lock:
-            for track in self.tracks:
+            for track in itertools.chain(self.tracks, self.takes):
                 if track is None:
                     continue
                 if track.playing:
@@ -309,3 +347,4 @@ class Mixer:
             np.clip(outdata, -1.0, 1.0, out=outdata)
             if self._recorder is not None:
                 self._recorder.push(outdata)
+                self.level = float(np.abs(outdata).max())
