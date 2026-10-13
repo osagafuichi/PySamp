@@ -1,0 +1,67 @@
+import numpy as np
+
+from pysamp import instruments as ins
+from pysamp.engine import SAMPLE_RATE
+
+
+def test_layout_and_names():
+    piano = ins.INSTRUMENTS[0]
+    names = ins.key_names(piano)
+    assert len(names) == ins.NUM_KEYS == 30
+    assert names[:10] == ["C5", "D5", "E5", "F5", "G5", "A5", "B5", "C6", "D6", "E6"], "top row is highest"
+    assert names[10:13] == ["C4", "D4", "E4"] and names[20:23] == ["C3", "D3", "E3"]
+    assert ins.note_name(60) == "C4" and ins.note_name(70) == "Bb4"
+    assert len({i.id for i in ins.INSTRUMENTS}) == len(ins.INSTRUMENTS) == 9
+    bass = ins.INSTRUMENTS[5]
+    assert ins.midi_for_key(bass, 20) == 36 and ins.midi_for_key(bass, 0) == 60
+
+
+def test_every_sample_is_bundled_and_renders():
+    for index, instrument in enumerate(ins.INSTRUMENTS):
+        for midi in ins.sample_notes(instrument):
+            assert (ins.SAMPLES_DIR / instrument.id / f"{ins.note_name(midi)}.ogg").is_file(), (instrument.id, midi)
+        rendered = ins.notes(index)
+        for key in range(ins.NUM_KEYS):
+            data, loop = ins.note_data(index, key)
+            label = (instrument.id, key)
+            assert data.dtype == np.float32 and data.ndim == 2 and data.shape[1] == 1, label
+            assert np.isfinite(data).all(), label
+            assert SAMPLE_RATE < len(data) < 4 * SAMPLE_RATE, label
+            assert 0.2 < np.abs(data).max() <= ins.PEAK + 1e-6, label
+            if instrument.loop:
+                start, stop = loop
+                assert stop == len(data) and 0 < start < stop, label
+                assert abs(data[stop - 1, 0] - data[start - 1, 0]) < 1e-6, f"{label} loops without a jump"
+            else:
+                assert loop is None and abs(data[-1, 0]) < 1e-3, f"{label} ends without a click"
+        assert len(rendered) == len({ins.midi_for_key(instrument, k) for k in range(ins.NUM_KEYS)})
+
+
+def test_cache_keeps_a_few_instruments():
+    for index in range(len(ins.INSTRUMENTS)):
+        ins.notes(index)
+    assert len(ins._cache) == ins.CACHE_SIZE
+    assert ins.notes(len(ins.INSTRUMENTS) - 1) is ins.notes(len(ins.INSTRUMENTS) - 1)
+
+
+def fundamental(data: np.ndarray) -> float:
+    window = data[SAMPLE_RATE // 20 : SAMPLE_RATE // 20 + SAMPLE_RATE // 2, 0]
+    spectrum = np.fft.rfft(window, 2 * len(window))
+    corr = np.fft.irfft(np.abs(spectrum) ** 2)
+    lags = np.arange(SAMPLE_RATE // 600, SAMPLE_RATE // 80)
+    return SAMPLE_RATE / lags[corr[lags].argmax()]
+
+
+def test_pitch_is_shifted_toward_the_key():
+    low, high = fundamental(ins.note_data(0, 20)[0]), fundamental(ins.note_data(0, 10)[0])
+    assert abs(low / 130.8 - 1) < 0.03 and abs(high / 261.6 - 1) < 0.03, (low, high)
+    shifted_up = fundamental(ins.note_data(0, 11)[0])
+    assert abs(shifted_up / 293.7 - 1) < 0.03, "keys between the stored samples are pitch-shifted"
+
+
+if __name__ == "__main__":
+    test_layout_and_names()
+    test_every_sample_is_bundled_and_renders()
+    test_cache_keeps_a_few_instruments()
+    test_pitch_is_shifted_toward_the_key()
+    print("instrument tests passed")

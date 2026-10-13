@@ -26,6 +26,7 @@ def main() -> None:
     for pkg in COLLECT:
         args += ["--collect-all", pkg]
     args += ["--add-data", f"{ROOT / 'pysamp' / 'web'}{os.pathsep}pysamp/web"]
+    args += ["--add-data", f"{ROOT / 'pysamp' / 'samples'}{os.pathsep}pysamp/samples"]
     args.append(str(ROOT / "launcher.py"))
     PyInstaller.__main__.run(args)
 

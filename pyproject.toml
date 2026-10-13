@@ -26,4 +26,4 @@ build-backend = "setuptools.build_meta"
 packages = ["pysamp"]
 
 [tool.setuptools.package-data]
-pysamp = ["web/*.html"]
+pysamp = ["web/*.html", "samples/*/*.ogg"]
