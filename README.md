@@ -163,13 +163,13 @@ Turn **Caps Lock on** and the keyboard becomes an instrument. The number row pic
 | `9` | Brass |
 | `0` | Drum kit (the default when you turn Caps Lock on) |
 
-**Instruments.** Each letter row is one octave of the C major scale, and each row is an octave above the one below it. `Z` is the lowest note and `P` the highest. (Bass is one octave lower.)
+**Instruments.** Each letter row is one octave of the C major scale. The home row (`A`) starts at middle C. The top row (`Q`) is one octave lower and the bottom row (`Z`) is one octave higher. (Bass is one octave lower again.)
 
 | Row | Keys | Notes (piano) |
 |-----|------|---------------|
-| Top | `Q W E R T Y U I O P` | C5 D5 E5 F5 G5 A5 B5 C6 D6 E6 |
+| Top | `Q W E R T Y U I O P` | C3 D3 E3 F3 G3 A3 B3 C4 D4 E4 |
 | Home | `A S D F G H J K L ;` | C4 D4 E4 F4 G4 A4 B4 C5 D5 E5 |
-| Bottom | `Z X C V B N M , . /` | C3 D3 E3 F3 G3 A3 B3 C4 D4 E4 |
+| Bottom | `Z X C V B N M , . /` | C5 D5 E5 F5 G5 A5 B5 C6 D6 E6 |
 
 - A note plays while you hold the key and fades out when you let go. Organ, Strings, Choir, Synth Lead and Brass loop, so they sustain as long as you hold. Piano, Electric Piano, Guitar and Bass die away by themselves, like the real thing.
 - You can hold several keys for a chord. Up to 32 sounds can ring at once. A held key does not repeat.
@@ -291,7 +291,7 @@ For the DJ test, please answer:
    Does pitch feel right (step size, range)? Do you need pitch to change tempo only, without changing the key (key-lock)?
 7. Is there delay between key press and sound? Is it worse for the drum kit (Caps Lock)?
    Do the drums and the 9 instruments sound good enough? Which pads or sounds are missing? Do you need sharps and flats, or a key change?
-   Is the note layout (one octave per row) easy to learn?
+   Is the note layout (one octave per row, home row = middle C) easy to learn?
    Is it right that a cue key stops the other songs unless you hold `Shift`?
    Recording saves the audio you hear. Is that what you want, or do you want it to save your key presses so you can replay and edit them?
 8. Did the install work first try? Where did you get stuck?

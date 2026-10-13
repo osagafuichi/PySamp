@@ -8,12 +8,13 @@ def test_layout_and_names():
     piano = ins.INSTRUMENTS[0]
     names = ins.key_names(piano)
     assert len(names) == ins.NUM_KEYS == 30
-    assert names[:10] == ["C5", "D5", "E5", "F5", "G5", "A5", "B5", "C6", "D6", "E6"], "top row is highest"
-    assert names[10:13] == ["C4", "D4", "E4"] and names[20:23] == ["C3", "D3", "E3"]
+    assert names[:10] == ["C3", "D3", "E3", "F3", "G3", "A3", "B3", "C4", "D4", "E4"], "top row is an octave below the middle"
+    assert names[10:13] == ["C4", "D4", "E4"], "home row starts at middle C"
+    assert names[20:23] == ["C5", "D5", "E5"] and names[29] == "E6", "bottom row is an octave above the middle"
     assert ins.note_name(60) == "C4" and ins.note_name(70) == "Bb4"
     assert len({i.id for i in ins.INSTRUMENTS}) == len(ins.INSTRUMENTS) == 9
     bass = ins.INSTRUMENTS[5]
-    assert ins.midi_for_key(bass, 20) == 36 and ins.midi_for_key(bass, 0) == 60
+    assert ins.midi_for_key(bass, 0) == 36 and ins.midi_for_key(bass, 20) == 60
 
 
 def test_every_sample_is_bundled_and_renders():
@@ -53,7 +54,7 @@ def fundamental(data: np.ndarray) -> float:
 
 
 def test_pitch_is_shifted_toward_the_key():
-    low, high = fundamental(ins.note_data(0, 20)[0]), fundamental(ins.note_data(0, 10)[0])
+    low, high = fundamental(ins.note_data(0, 0)[0]), fundamental(ins.note_data(0, 10)[0])
     assert abs(low / 130.8 - 1) < 0.03 and abs(high / 261.6 - 1) < 0.03, (low, high)
     shifted_up = fundamental(ins.note_data(0, 11)[0])
     assert abs(shifted_up / 293.7 - 1) < 0.03, "keys between the stored samples are pitch-shifted"

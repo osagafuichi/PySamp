@@ -48,7 +48,7 @@ def note_name(midi: int) -> str:
 
 def midi_for_key(instrument: Instrument, key: int) -> int:
     row, col = divmod(key, len(SCALE))
-    return instrument.base + 12 * (2 - row) + SCALE[col]
+    return instrument.base + 12 * row + SCALE[col]
 
 
 def key_names(instrument: Instrument) -> list[str]:
