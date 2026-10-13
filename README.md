@@ -136,11 +136,13 @@ Both together give all 4 combinations:
 | Key | Action |
 |-----|--------|
 | Cue keys | Jump to that cue and play. The other songs stop |
-| `Shift` + cue key | Jump to that cue and play. The other songs **keep playing** |
+| `Shift` + cue key | Play that cue and leave the others alone. The other songs **keep playing**. If the song is already playing, the cue starts **on top of** it (a second playhead) and the first one keeps going. Up to 8 can overlap |
 | `Left` / `Right` | Volume down / up for the selected song (5% per press) |
 | `Space` | Stop all songs |
 
 Pressing a cue key also selects that song, so scrolling or `Left` / `Right` right after a trigger changes the volume of the song you just hit.
+
+A cue key without `Shift` replaces the overlaps: only one playhead stays. Pause (`Space` in Edit mode) and stop all also remove them. Overlapping cues share the song's volume and pitch.
 
 A song that stops because you triggered another one keeps its place. Select it and press `Space` (Edit mode) to continue it. A cue key with no cue set does nothing, so it never stops anything. The same rule applies to cue keys in Edit mode and to clicking an orange cue flag (`Shift` + click keeps the others playing).
 
