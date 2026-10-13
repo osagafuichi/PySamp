@@ -39,10 +39,17 @@
   #help { color:var(--dim); margin-top:6px; font-size:12px; }
   #drumtag { background:var(--accent); color:#06201e; border-radius:6px; padding:3px 10px; font-weight:700; letter-spacing:.08em; }
   #drums { display:none; flex:none; width:600px; align-self:flex-start; flex-direction:column; gap:6px; margin-bottom:10px; }
-  .drumrow { display:flex; gap:6px; height:76px; }
-  .drumrow:nth-child(2) { padding-left:6px; }
-  .drumrow:nth-child(3) { padding-left:12px; }
-  .drumrow:nth-child(4) { padding-left:20px; }
+  #presets { display:flex; gap:6px; }
+  .preset { flex:1 1 0; min-width:0; height:46px; background:var(--panel); border:2px solid var(--line); border-radius:8px; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; padding:2px; text-align:center; }
+  .preset b { font-size:14px; color:var(--accent); }
+  .preset span { font-size:9px; line-height:1.1; color:var(--dim); overflow:hidden; max-height:2.2em; max-width:100%; }
+  .preset.on { background:var(--accent); border-color:var(--accent); }
+  .preset.on b, .preset.on span { color:#06201e; }
+  #padgrid { display:flex; flex-direction:column; gap:6px; }
+  .drumrow { display:flex; gap:6px; height:92px; }
+  .drumrow:nth-child(2) { padding-left:10px; }
+  .drumrow:nth-child(3) { padding-left:20px; }
   .pad { flex:1 1 0; min-width:0; background:var(--panel); border:2px solid var(--line); border-radius:8px; cursor:pointer;
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:2px; text-align:center; }
   .pad b { font-size:18px; color:var(--accent); }
@@ -72,7 +79,7 @@
   </div>
   <div class="stage">
     <div id="strips"></div>
-    <div id="drums"></div>
+    <div id="drums"><div id="presets"></div><div id="padgrid"></div></div>
   </div>
   <div id="status"></div>
   <div id="help"></div>
@@ -92,12 +99,12 @@ const ROWS = 4, SONGS = 8, PER_PAGE = 9, NUM_CUES = 18, SEEK = 5, KEY_STEP = 0.0
 const PITCH_MIN = 0.5, PITCH_MAX = 2, PITCH_GAIN = 0.0001;
 const HELP = {
   edit: "Edit mode: 1/Q/A/Z select a song | Space play/pause | M mark cue | Left/Right seek 5s | hold a cue key + Backspace delete that cue | Backspace alone delete last cue | " +
-    "drag waveform to seek | Tab bank | ` page (tap = stay, hold = back on release) | Enter play mode | scroll = volume | right-click or Option + scroll = pitch | Caps Lock = drum kit | \\ = record",
+    "drag waveform to seek | Tab bank | ` page (tap = stay, hold = back on release) | Enter play mode | scroll = volume | right-click or Option + scroll = pitch | Caps Lock = instruments and drums | \\ = record",
   play: "Play mode: 1/Q/A/Z select a song | other row keys trigger cues (other songs stop; hold Shift to keep them playing) | Left/Right volume | Space stop all | " +
-    "Tab bank | ` page (tap = stay, hold = back on release) | Enter edit mode | scroll = volume | right-click or Option + scroll = pitch | Caps Lock = drum kit | \\ = record",
+    "Tab bank | ` page (tap = stay, hold = back on release) | Enter edit mode | scroll = volume | right-click or Option + scroll = pitch | Caps Lock = instruments and drums | \\ = record",
 };
 
-const DRUM_HELP = "Drum kit (Caps Lock is on): keys 1 to / play drums on the right, songs keep playing | Tab bank | ` page (tap = stay, hold = back on release) | Enter mode | \\ record | turn Caps Lock off to go back";
+const DRUM_HELP = "Caps Lock is on: 1-9 pick an instrument, 0 picks the drum kit | Q-P, A-; and Z-/ play it (hold a key to sustain) | songs keep playing | Tab bank | ` page | Enter mode | \\ record | turn Caps Lock off to go back";
 let S = null;
 let offline = false;
 let vol = { song: -1, value: 0, until: 0 };
@@ -106,7 +113,8 @@ let drag = null;
 const held = new Map();
 const HOLD_MS = 250;
 const flips = new Map();
-const ui = { mode: "edit", bank: 0, page: 0, selected: 0, caps: false };
+const DRUM_KIT = -1;
+const ui = { mode: "edit", bank: 0, page: 0, selected: 0, caps: false, preset: DRUM_KIT };
 const peaks = {};
 const $ = (id) => document.getElementById(id);
 const songOf = (row) => ui.bank * ROWS + row;
@@ -204,31 +212,79 @@ for (let row = 0; row < ROWS; row++) {
 }
 
 const pads = [];
-let padsNamed = false;
-ROW_KEYS.forEach((keys, row) => {
+const sounding = new Map();
+let labeledPreset = null;
+let chipsNamed = false;
+ROW_KEYS.slice(1).forEach((keys, row) => {
   const line = document.createElement("div");
   line.className = "drumrow";
   [...keys].forEach((key, col) => {
+    const pad = row * 10 + col;
     const el = document.createElement("div");
     el.className = "pad";
     el.innerHTML = "<b>" + key.toUpperCase() + "</b><span></span>";
-    el.addEventListener("pointerdown", () => hitPad(row * 10 + col));
-    el.addEventListener("pointerup", () => el.classList.remove("hit"));
-    el.addEventListener("pointerleave", () => el.classList.remove("hit"));
+    el.addEventListener("pointerdown", () => padOn(pad));
+    el.addEventListener("pointerup", () => padOff(pad));
+    el.addEventListener("pointerleave", () => padOff(pad));
     line.append(el);
     pads.push(el);
   });
-  $("drums").append(line);
+  $("padgrid").append(line);
 });
 
-function hitPad(pad) {
-  pads[pad].classList.add("hit");
-  send({ action: "drum", pad });
+const chips = [];
+[...ROW_KEYS[0]].forEach((key, col) => {
+  const el = document.createElement("div");
+  el.className = "preset";
+  el.innerHTML = "<b>" + key + "</b><span></span>";
+  const preset = col === 9 ? DRUM_KIT : col;
+  el.addEventListener("pointerdown", () => setPreset(preset));
+  $("presets").append(el);
+  chips.push({ el, preset });
+});
+
+function setPreset(preset) {
+  ui.preset = preset;
+  if (preset !== DRUM_KIT) send({ action: "preset", preset });
 }
 
-function releasePad(code) {
+function padOn(pad) {
+  pads[pad].classList.add("hit");
+  if (ui.preset === DRUM_KIT) {
+    send({ action: "drum", pad });
+    return;
+  }
+  sounding.set(pad, ui.preset);
+  send({ action: "note", preset: ui.preset, key: pad, on: true });
+}
+
+function padOff(pad) {
+  pads[pad].classList.remove("hit");
+  const preset = sounding.get(pad);
+  if (preset === undefined) return;
+  sounding.delete(pad);
+  send({ action: "note", preset, key: pad, on: false });
+}
+
+function releaseAllPads() {
+  pads.forEach((_, pad) => padOff(pad));
+}
+
+function setCaps(on) {
+  if (ui.caps && !on) releaseAllPads();
+  ui.caps = on;
+}
+
+function labelPads() {
+  if (labeledPreset === ui.preset) return;
+  labeledPreset = ui.preset;
+  const names = ui.preset === DRUM_KIT ? S.drum_names : S.presets[ui.preset].notes;
+  pads.forEach((el, pad) => { el.querySelector("span").textContent = names[pad]; });
+}
+
+function slotPad(code) {
   const slot = CODE_TO_SLOT[code];
-  if (slot) pads[slot[0] * 10 + slot[1]].classList.remove("hit");
+  return slot && slot[0] > 0 ? (slot[0] - 1) * 10 + slot[1] : -1;
 }
 
 function waveFraction(s, e) {
@@ -364,6 +420,8 @@ function render() {
   }
   $("help").textContent = ui.caps ? DRUM_HELP : HELP[ui.mode];
   $("drumtag").hidden = !ui.caps;
+  if (S) $("drumtag").textContent = (ui.preset === DRUM_KIT ? "DRUMS" : S.presets[ui.preset].label).toUpperCase();
+  chips.forEach((c) => c.el.classList.toggle("on", c.preset === ui.preset));
   document.querySelector("main").classList.toggle("caps", ui.caps);
   $("drums").style.display = ui.caps ? "flex" : "none";
   $("offline").style.display = offline ? "block" : "none";
@@ -375,10 +433,11 @@ function render() {
     S.songs.forEach((d, i) => {
       if (d.loaded && (!peaks[i] || peaks[i].id !== d.id)) fetchPeaks(i, d.id);
     });
-    if (!padsNamed) {
-      pads.forEach((el, i) => { el.querySelector("span").textContent = S.drum_names[i]; });
-      padsNamed = true;
+    if (!chipsNamed) {
+      chips.forEach((c) => { c.el.querySelector("span").textContent = c.preset === DRUM_KIT ? "Drums" : S.presets[c.preset].label; });
+      chipsNamed = true;
     }
+    labelPads();
     strips.forEach(drawStrip);
   }
 }
@@ -419,7 +478,7 @@ function rowKey(code, row, col, layer) {
 }
 
 document.addEventListener("keydown", (e) => {
-  ui.caps = e.getModifierState("CapsLock");
+  setCaps(e.getModifierState("CapsLock"));
   if (e.target.tagName === "INPUT") {
     if (e.code === "Escape") e.target.blur();
     return;
@@ -433,7 +492,10 @@ document.addEventListener("keydown", (e) => {
   }
   if (ui.caps && code in CODE_TO_SLOT) {
     e.preventDefault();
-    if (!e.repeat) hitPad(CODE_TO_SLOT[code][0] * 10 + CODE_TO_SLOT[code][1]);
+    if (e.repeat) return;
+    const [row, col] = CODE_TO_SLOT[code];
+    if (row === 0) setPreset(col === 9 ? DRUM_KIT : col);
+    else padOn(slotPad(code));
     return;
   }
   const known = ["Tab", "Space", "Enter", "Backspace", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Backquote"];
@@ -468,15 +530,16 @@ function releaseFlip(code) {
 }
 
 document.addEventListener("keyup", (e) => {
-  ui.caps = e.getModifierState("CapsLock");
   held.delete(e.code);
-  releasePad(e.code);
+  const pad = slotPad(e.code);
+  if (pad >= 0) padOff(pad);
   releaseFlip(e.code);
+  setCaps(e.getModifierState("CapsLock"));
 });
-document.addEventListener("pointermove", (e) => { ui.caps = e.getModifierState("CapsLock"); });
+document.addEventListener("pointermove", (e) => { setCaps(e.getModifierState("CapsLock")); });
 window.addEventListener("blur", () => {
   held.clear();
-  pads.forEach((el) => el.classList.remove("hit"));
+  releaseAllPads();
   [...flips.keys()].forEach(releaseFlip);
 });
 
