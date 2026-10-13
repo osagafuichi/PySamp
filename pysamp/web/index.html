@@ -47,6 +47,19 @@
   .preset.on { background:var(--accent); border-color:var(--accent); }
   .preset.on b, .preset.on span { color:#06201e; }
   #padgrid { display:flex; flex-direction:column; gap:6px; }
+  #piano { display:none; position:relative; height:210px; margin-bottom:4px; }
+  .white, .black { position:absolute; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; cursor:pointer; text-align:center; }
+  .white { top:0; bottom:0; background:#e6e9f2; border:1px solid var(--bg); border-radius:0 0 6px 6px; padding-bottom:8px; color:#12151c; }
+  .white b { font-size:17px; }
+  .white span { font-size:10px; color:#556; }
+  .black { top:0; height:60%; z-index:1; background:#0d1017; border:1px solid var(--line); border-radius:0 0 5px 5px; padding-bottom:6px; color:var(--accent); }
+  .black b { font-size:15px; }
+  .black span { font-size:9px; color:var(--dim); }
+  .white.hit { background:var(--accent); }
+  .black.hit { background:var(--accent); color:#06201e; }
+  .black.hit span { color:#06201e; }
+  #keyinfo { display:none; gap:20px; color:var(--dim); font-variant-numeric:tabular-nums; }
+  #keyinfo b { color:var(--text); }
   .drumrow { display:flex; gap:6px; height:92px; }
   .drumrow:nth-child(2) { padding-left:10px; }
   .drumrow:nth-child(3) { padding-left:20px; }
@@ -79,7 +92,7 @@
   </div>
   <div class="stage">
     <div id="strips"></div>
-    <div id="drums"><div id="presets"></div><div id="padgrid"></div></div>
+    <div id="drums"><div id="presets"></div><div id="piano"></div><div id="keyinfo"></div><div id="padgrid"></div></div>
   </div>
   <div id="status"></div>
   <div id="help"></div>
@@ -104,7 +117,14 @@ const HELP = {
     "Tab bank | ` page (tap = stay, hold = back on release) | Enter edit mode | scroll = volume | right-click or Option + scroll = pitch | Caps Lock = instruments and drums | \\ = record",
 };
 
-const DRUM_HELP = "Caps Lock is on: 1-9 pick an instrument, 0 picks the drum kit | Q-P, A-; and Z-/ play it (hold a key to sustain) | songs keep playing | Tab bank | ` page | Enter mode | \\ record | turn Caps Lock off to go back";
+const DRUM_HELP = "Caps Lock is on: 1-9 pick an instrument, 0 picks the drum kit | Q-P, A-; and Z-/ play the drums | songs keep playing | Tab bank | ` page | Enter mode | \\ record | turn Caps Lock off to go back";
+const PIANO_HELP = "Caps Lock is on: 1-9 pick an instrument, 0 picks the drum kit | A-' white keys, W E T Y U O P black keys (hold to sustain) | Z/X octave down/up | C/V velocity down/up | songs keep playing | Tab bank | ` page | \\ record | turn Caps Lock off to go back";
+const PIANO = { KeyA: 0, KeyW: 1, KeyS: 2, KeyE: 3, KeyD: 4, KeyF: 5, KeyT: 6, KeyG: 7, KeyY: 8, KeyH: 9, KeyU: 10, KeyJ: 11, KeyK: 12, KeyO: 13, KeyL: 14, KeyP: 15, Semicolon: 16, Quote: 17 };
+const PIANO_LABEL = ["A", "W", "S", "E", "D", "F", "T", "G", "Y", "H", "U", "J", "K", "O", "L", "P", ";", "'"];
+const WHITE = [0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17];
+const NOTE_NAMES = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+const OCTAVE_MIN = -1, OCTAVE_MAX = 2, VELOCITY_STEP = 0.1;
+const noteName = (midi) => NOTE_NAMES[midi % 12] + (Math.floor(midi / 12) - 1);
 let S = null;
 let offline = false;
 let vol = { song: -1, value: 0, until: 0 };
@@ -114,7 +134,7 @@ const held = new Map();
 const HOLD_MS = 250;
 const flips = new Map();
 const DRUM_KIT = -1;
-const ui = { mode: "edit", bank: 0, page: 0, selected: 0, caps: false, preset: DRUM_KIT };
+const ui = { mode: "edit", bank: 0, page: 0, selected: 0, caps: false, preset: DRUM_KIT, octave: 1, velocity: 0.8 };
 const peaks = {};
 const $ = (id) => document.getElementById(id);
 const songOf = (row) => ui.bank * ROWS + row;
@@ -212,8 +232,9 @@ for (let row = 0; row < ROWS; row++) {
 }
 
 const pads = [];
+const keys = [];
 const sounding = new Map();
-let labeledPreset = null;
+let labeledKeys = "";
 let chipsNamed = false;
 ROW_KEYS.slice(1).forEach((keys, row) => {
   const line = document.createElement("div");
@@ -230,6 +251,27 @@ ROW_KEYS.slice(1).forEach((keys, row) => {
     pads.push(el);
   });
   $("padgrid").append(line);
+});
+
+PIANO_LABEL.forEach((label, semi) => {
+  const white = WHITE.includes(semi);
+  const el = document.createElement("div");
+  el.className = white ? "white" : "black";
+  el.innerHTML = "<b>" + label + "</b><span></span>";
+  const unit = 100 / WHITE.length;
+  if (white) {
+    el.style.left = WHITE.indexOf(semi) * unit + "%";
+    el.style.width = unit + "%";
+  } else {
+    const before = WHITE.filter((w) => w < semi).length;
+    el.style.left = before * unit - unit * 0.3 + "%";
+    el.style.width = unit * 0.6 + "%";
+  }
+  el.addEventListener("pointerdown", () => pianoOn(semi));
+  el.addEventListener("pointerup", () => pianoOff(semi));
+  el.addEventListener("pointerleave", () => pianoOff(semi));
+  $("piano").append(el);
+  keys.push(el);
 });
 
 const chips = [];
@@ -250,24 +292,32 @@ function setPreset(preset) {
 
 function padOn(pad) {
   pads[pad].classList.add("hit");
-  if (ui.preset === DRUM_KIT) {
-    send({ action: "drum", pad });
-    return;
-  }
-  sounding.set(pad, ui.preset);
-  send({ action: "note", preset: ui.preset, key: pad, on: true });
+  send({ action: "drum", pad });
 }
 
 function padOff(pad) {
   pads[pad].classList.remove("hit");
-  const preset = sounding.get(pad);
-  if (preset === undefined) return;
-  sounding.delete(pad);
-  send({ action: "note", preset, key: pad, on: false });
+}
+
+function pianoOn(semi) {
+  if (ui.preset === DRUM_KIT || !S || sounding.has(semi)) return;
+  const midi = S.presets[ui.preset].base + 12 * ui.octave + semi;
+  sounding.set(semi, { preset: ui.preset, midi });
+  keys[semi].classList.add("hit");
+  send({ action: "note", preset: ui.preset, midi, on: true, velocity: ui.velocity });
+}
+
+function pianoOff(semi) {
+  keys[semi].classList.remove("hit");
+  const note = sounding.get(semi);
+  if (!note) return;
+  sounding.delete(semi);
+  send({ action: "note", preset: note.preset, midi: note.midi, on: false });
 }
 
 function releaseAllPads() {
   pads.forEach((_, pad) => padOff(pad));
+  keys.forEach((_, semi) => pianoOff(semi));
 }
 
 function setCaps(on) {
@@ -275,11 +325,24 @@ function setCaps(on) {
   ui.caps = on;
 }
 
-function labelPads() {
-  if (labeledPreset === ui.preset) return;
-  labeledPreset = ui.preset;
-  const names = ui.preset === DRUM_KIT ? S.drum_names : S.presets[ui.preset].notes;
-  pads.forEach((el, pad) => { el.querySelector("span").textContent = names[pad]; });
+function labelKeys() {
+  const id = ui.preset + ":" + ui.octave;
+  if (labeledKeys === id) return;
+  labeledKeys = id;
+  if (ui.preset === DRUM_KIT) {
+    pads.forEach((el, pad) => { el.querySelector("span").textContent = S.drum_names[pad]; });
+    return;
+  }
+  const base = S.presets[ui.preset].base + 12 * ui.octave;
+  keys.forEach((el, semi) => { el.querySelector("span").textContent = noteName(base + semi); });
+}
+
+function pianoKey(code) {
+  if (code in PIANO) pianoOn(PIANO[code]);
+  else if (code === "KeyZ") ui.octave = Math.max(OCTAVE_MIN, ui.octave - 1);
+  else if (code === "KeyX") ui.octave = Math.min(OCTAVE_MAX, ui.octave + 1);
+  else if (code === "KeyC") ui.velocity = Math.max(VELOCITY_STEP, Math.round((ui.velocity - VELOCITY_STEP) * 10) / 10);
+  else if (code === "KeyV") ui.velocity = Math.min(1, Math.round((ui.velocity + VELOCITY_STEP) * 10) / 10);
 }
 
 function slotPad(code) {
@@ -418,12 +481,20 @@ function render() {
     $("bank" + i).classList.toggle("on", ui.bank === i);
     $("page" + i).classList.toggle("on", ui.page === i);
   }
-  $("help").textContent = ui.caps ? DRUM_HELP : HELP[ui.mode];
+  const piano = ui.preset !== DRUM_KIT;
+  $("help").textContent = ui.caps ? (piano ? PIANO_HELP : DRUM_HELP) : HELP[ui.mode];
   $("drumtag").hidden = !ui.caps;
   if (S) $("drumtag").textContent = (ui.preset === DRUM_KIT ? "DRUMS" : S.presets[ui.preset].label).toUpperCase();
   chips.forEach((c) => c.el.classList.toggle("on", c.preset === ui.preset));
   document.querySelector("main").classList.toggle("caps", ui.caps);
   $("drums").style.display = ui.caps ? "flex" : "none";
+  $("padgrid").style.display = piano ? "none" : "flex";
+  $("piano").style.display = piano ? "block" : "none";
+  $("keyinfo").style.display = piano ? "flex" : "none";
+  if (S && piano) {
+    const base = S.presets[ui.preset].base + 12 * ui.octave;
+    $("keyinfo").innerHTML = "<span>Octave <b>" + noteName(base) + "</b> (Z / X)</span><span>Velocity <b>" + Math.round(ui.velocity * 100) + "%</b> (C / V)</span>";
+  }
   $("offline").style.display = offline ? "block" : "none";
   const recording = S !== null && S.recording !== null;
   $("rec").classList.toggle("recording", recording);
@@ -437,7 +508,7 @@ function render() {
       chips.forEach((c) => { c.el.querySelector("span").textContent = c.preset === DRUM_KIT ? "Drums" : S.presets[c.preset].label; });
       chipsNamed = true;
     }
-    labelPads();
+    labelKeys();
     strips.forEach(drawStrip);
   }
 }
@@ -490,12 +561,15 @@ document.addEventListener("keydown", (e) => {
     if (!e.repeat) toggleRecord();
     return;
   }
-  if (ui.caps && code in CODE_TO_SLOT) {
+  if (ui.caps && (code in CODE_TO_SLOT || code in PIANO)) {
     e.preventDefault();
     if (e.repeat) return;
-    const [row, col] = CODE_TO_SLOT[code];
-    if (row === 0) setPreset(col === 9 ? DRUM_KIT : col);
-    else padOn(slotPad(code));
+    if (code in CODE_TO_SLOT && CODE_TO_SLOT[code][0] === 0) {
+      const col = CODE_TO_SLOT[code][1];
+      setPreset(col === 9 ? DRUM_KIT : col);
+    }
+    else if (ui.preset === DRUM_KIT) { if (slotPad(code) >= 0) padOn(slotPad(code)); }
+    else pianoKey(code);
     return;
   }
   const known = ["Tab", "Space", "Enter", "Backspace", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Backquote"];
@@ -533,6 +607,7 @@ document.addEventListener("keyup", (e) => {
   held.delete(e.code);
   const pad = slotPad(e.code);
   if (pad >= 0) padOff(pad);
+  if (e.code in PIANO) pianoOff(PIANO[e.code]);
   releaseFlip(e.code);
   setCaps(e.getModifierState("CapsLock"));
 });
