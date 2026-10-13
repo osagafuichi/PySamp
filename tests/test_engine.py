@@ -5,7 +5,7 @@ import numpy as np
 import soundfile as sf
 
 from pysamp.cuestore import load_cues, save_cues
-from pysamp.engine import MAX_VOICES, NUM_CUES, NUM_PADS, SAMPLE_RATE, Mixer, load_track
+from pysamp.engine import MAX_LAYERS, MAX_VOICES, NUM_CUES, NUM_PADS, SAMPLE_RATE, Mixer, load_track
 
 FRAMES = 256
 
@@ -225,6 +225,55 @@ def test_trigger_stops_other_songs_unless_layered():
         assert mixer.tracks[1].playing, "re-trigger on the same song keeps it playing"
 
 
+def test_shift_layers_cues_within_one_song():
+    with tempfile.TemporaryDirectory() as d:
+        wav = Path(d) / "ramp.wav"
+        make_ramp_wav(wav)
+        mixer = Mixer()
+        track = load_track(wav)
+        mixer.set_track(0, track)
+        for seconds in (1, 4, 7):
+            mixer.seek_to(0, seconds / 10)
+            mixer.mark_cue(0)
+
+        mixer.trigger(0, 0)
+        mixer.trigger(0, 1, layer=True)
+        assert track.playing and track.layers == [track.cues[1]], "layered cue starts a second playhead"
+        assert track.pos == track.cues[0], "main playhead does not jump"
+        out = pull(mixer)
+        expected = track.data[track.cues[0] : track.cues[0] + FRAMES] + track.data[track.cues[1] : track.cues[1] + FRAMES]
+        assert np.allclose(out, expected, atol=1e-6), "both playheads are mixed"
+        assert track.layers == [track.cues[1] + FRAMES] and track.pos == track.cues[0] + FRAMES
+
+        mixer.trigger(0, 2)
+        assert not track.layers and track.pos == track.cues[2], "plain trigger drops the layers"
+
+        mixer.trigger(0, 0, layer=True)
+        mixer.set_pitch(0, 2.0)
+        out = pull(mixer)
+        low = track.cues[0] + np.arange(FRAMES) * 2
+        assert np.allclose(out[:, 0], track.data[low, 0] + track.data[track.cues[2] : track.cues[2] + FRAMES * 2 : 2, 0], atol=1e-4), "layers follow the pitch"
+        mixer.set_pitch(0, 1.0)
+
+        mixer.toggle_play(0)
+        assert not track.playing and not track.layers, "pause drops the layers"
+        mixer.trigger(0, 1, layer=True)
+        assert track.playing and not track.layers and track.pos == track.cues[1], "Shift on a paused song just starts it"
+
+        for _ in range(20):
+            mixer.trigger(0, 0, layer=True)
+        assert len(track.layers) == MAX_LAYERS
+        mixer.stop_all()
+        assert not track.layers and not pull(mixer).any(), "stop all silences the layers"
+
+        track.cues[3] = len(track.data) - 100
+        mixer.trigger(0, 2)
+        mixer.trigger(0, 3, layer=True)
+        for _ in range(2):
+            pull(mixer)
+        assert track.playing and not track.layers, "a layer ends with the audio"
+
+
 def test_drum_hits():
     from pysamp import drums
 
@@ -342,6 +391,7 @@ if __name__ == "__main__":
     test_pitch()
     test_empty_row_and_clipping()
     test_trigger_stops_other_songs_unless_layered()
+    test_shift_layers_cues_within_one_song()
     test_drum_hits()
     test_drums_play_over_songs()
     test_recording_captures_the_mix()

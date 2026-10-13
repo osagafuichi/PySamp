@@ -13,6 +13,7 @@ NUM_BANKS = 2
 NUM_SONGS = NUM_ROWS * NUM_BANKS
 NUM_PADS = 40
 MAX_VOICES = 32
+MAX_LAYERS = 8
 CUES_PER_PAGE = 9
 NUM_PAGES = 2
 NUM_CUES = CUES_PER_PAGE * NUM_PAGES
@@ -31,6 +32,7 @@ class Track:
         self.volume = 1.0
         self.rate = 1.0
         self.active_cue: int | None = None
+        self.layers: list[float] = []
         self.cues: list[int | None] = [None] * NUM_CUES
 
 
@@ -87,8 +89,14 @@ class Mixer:
                 for other in self.tracks:
                     if other is not None and other is not track:
                         other.playing = False
-            track.pos = track.cues[cue]
+                        other.layers.clear()
             track.active_cue = cue
+            if layer and track.playing:
+                track.layers.append(track.cues[cue])
+                del track.layers[:-MAX_LAYERS]
+                return
+            track.layers.clear()
+            track.pos = track.cues[cue]
             track.playing = True
 
     def set_volume(self, song: int, volume: float) -> None:
@@ -108,6 +116,7 @@ class Mixer:
             track = self.tracks[song]
             if track is None:
                 return
+            track.layers.clear()
             if track.playing:
                 track.playing = False
                 return
@@ -171,6 +180,7 @@ class Mixer:
             for track in self.tracks:
                 if track is not None:
                     track.playing = False
+                    track.layers.clear()
 
     def hit(self, pad: int) -> None:
         from pysamp import drums
@@ -201,31 +211,37 @@ class Mixer:
             self._stream = None
 
     @staticmethod
-    def _resample(track: Track, frames: int) -> np.ndarray:
-        idx = track.pos + np.arange(frames) * track.rate
+    def _read(track: Track, pos: float, frames: int) -> tuple[np.ndarray, float]:
+        if track.rate == 1.0:
+            start = int(pos)
+            chunk = track.data[start : start + frames]
+            return chunk, start + len(chunk)
+        idx = pos + np.arange(frames) * track.rate
         count = int(np.searchsorted(idx, len(track.data) - 1))
         idx = idx[:count]
         low = idx.astype(np.intp)
         frac = (idx - low).astype(np.float32)[:, None]
         chunk = track.data[low] * (1 - frac) + track.data[low + 1] * frac
-        track.pos = track.pos + count * track.rate if count == frames else len(track.data)
-        return chunk
+        return chunk, pos + count * track.rate if count == frames else len(track.data)
 
     def _callback(self, outdata, frames, time, status) -> None:
         outdata.fill(0)
         with self._lock:
             for track in self.tracks:
-                if track is None or not track.playing:
+                if track is None:
                     continue
-                if track.rate == 1.0:
-                    start = int(track.pos)
-                    chunk = track.data[start : start + frames]
-                    track.pos = start + len(chunk)
-                else:
-                    chunk = self._resample(track, frames)
-                outdata[: len(chunk)] += chunk * track.volume
-                if track.pos >= len(track.data):
-                    track.playing = False
+                if track.playing:
+                    chunk, track.pos = self._read(track, track.pos, frames)
+                    outdata[: len(chunk)] += chunk * track.volume
+                    if track.pos >= len(track.data):
+                        track.playing = False
+                alive = []
+                for pos in track.layers:
+                    chunk, pos = self._read(track, pos, frames)
+                    outdata[: len(chunk)] += chunk * track.volume
+                    if pos < len(track.data):
+                        alive.append(pos)
+                track.layers = alive
             for voice in self._voices:
                 chunk = voice[0][voice[1] : voice[1] + frames]
                 outdata[: len(chunk)] += chunk
