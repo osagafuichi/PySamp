@@ -92,18 +92,20 @@ const ROWS = 4, SONGS = 8, PER_PAGE = 9, NUM_CUES = 18, SEEK = 5, KEY_STEP = 0.0
 const PITCH_MIN = 0.5, PITCH_MAX = 2, PITCH_GAIN = 0.0001;
 const HELP = {
   edit: "Edit mode: 1/Q/A/Z select a song | Space play/pause | M mark cue | Left/Right seek 5s | hold a cue key + Backspace delete that cue | Backspace alone delete last cue | " +
-    "drag waveform to seek | Tab bank | ` page | Enter play mode | scroll = volume | right-click or Option + scroll = pitch | Caps Lock = drum kit | \\ = record",
+    "drag waveform to seek | Tab bank | ` page (tap = stay, hold = back on release) | Enter play mode | scroll = volume | right-click or Option + scroll = pitch | Caps Lock = drum kit | \\ = record",
   play: "Play mode: 1/Q/A/Z select a song | other row keys trigger cues (other songs stop; hold Shift to keep them playing) | Left/Right volume | Space stop all | " +
-    "Tab bank | ` page | Enter edit mode | scroll = volume | right-click or Option + scroll = pitch | Caps Lock = drum kit | \\ = record",
+    "Tab bank | ` page (tap = stay, hold = back on release) | Enter edit mode | scroll = volume | right-click or Option + scroll = pitch | Caps Lock = drum kit | \\ = record",
 };
 
-const DRUM_HELP = "Drum kit (Caps Lock is on): keys 1 to / play drums on the right, songs keep playing | Tab bank | ` page | Enter mode | \\ record | turn Caps Lock off to go back";
+const DRUM_HELP = "Drum kit (Caps Lock is on): keys 1 to / play drums on the right, songs keep playing | Tab bank | ` page (tap = stay, hold = back on release) | Enter mode | \\ record | turn Caps Lock off to go back";
 let S = null;
 let offline = false;
 let vol = { song: -1, value: 0, until: 0 };
 let pitch = { song: -1, value: 1, until: 0 };
 let drag = null;
 const held = new Map();
+const HOLD_MS = 250;
+const flips = new Map();
 const ui = { mode: "edit", bank: 0, page: 0, selected: 0, caps: false };
 const peaks = {};
 const $ = (id) => document.getElementById(id);
@@ -438,8 +440,14 @@ document.addEventListener("keydown", (e) => {
   if (!known.includes(code) && !(code in CODE_TO_SLOT)) return;
   e.preventDefault();
   if (!S || (e.repeat && code !== "ArrowLeft" && code !== "ArrowRight")) return;
-  if (code === "Tab") setBank(1 - ui.bank);
-  else if (code === "Backquote") ui.page = 1 - ui.page;
+  if (code === "Tab") {
+    flips.set(code, { at: performance.now(), bank: ui.bank });
+    setBank(1 - ui.bank);
+  }
+  else if (code === "Backquote") {
+    flips.set(code, { at: performance.now(), page: ui.page });
+    ui.page = 1 - ui.page;
+  }
   else if (code === "Enter") ui.mode = ui.mode === "edit" ? "play" : "edit";
   else if (code === "ArrowUp" || code === "ArrowDown") {
     ui.selected = (ui.selected + (code === "ArrowDown" ? 1 : -1) + SONGS) % SONGS;
@@ -450,13 +458,27 @@ document.addEventListener("keydown", (e) => {
   else if (code in CODE_TO_SLOT) rowKey(code, ...CODE_TO_SLOT[code], e.shiftKey);
 });
 
+function releaseFlip(code) {
+  const flip = flips.get(code);
+  if (!flip) return;
+  flips.delete(code);
+  if (performance.now() - flip.at < HOLD_MS) return;
+  if (code === "Tab") setBank(flip.bank);
+  else ui.page = flip.page;
+}
+
 document.addEventListener("keyup", (e) => {
   ui.caps = e.getModifierState("CapsLock");
   held.delete(e.code);
   releasePad(e.code);
+  releaseFlip(e.code);
 });
 document.addEventListener("pointermove", (e) => { ui.caps = e.getModifierState("CapsLock"); });
-window.addEventListener("blur", () => { held.clear(); pads.forEach((el) => el.classList.remove("hit")); });
+window.addEventListener("blur", () => {
+  held.clear();
+  pads.forEach((el) => el.classList.remove("hit"));
+  [...flips.keys()].forEach(releaseFlip);
+});
 
 function wheelAmount(delta, mode) {
   return mode === 1 ? delta * 33 : mode === 2 ? delta * 400 : delta;

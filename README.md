@@ -109,6 +109,8 @@ A selector key only selects. It never plays. The selected song has the teal bord
 | `Up` / `Down` | Select the previous / next song (moves between banks) |
 | `Enter` | Switch between Edit mode and Play mode |
 
+`Tab` and `` ` `` work two ways. **Tap** the key (release within a quarter of a second) and the new bank or page stays. **Hold** the key and the bank or page is only borrowed: it goes back to the old one when you let go. Use a hold to fire a cue from the other bank or page and return without a second key press.
+
 Both together give all 4 combinations:
 
 | Bank | Page | Songs | Cues |
