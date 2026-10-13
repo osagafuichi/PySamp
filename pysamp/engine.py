@@ -11,7 +11,7 @@ SAMPLE_RATE = 44100
 NUM_ROWS = 4
 NUM_BANKS = 2
 NUM_SONGS = NUM_ROWS * NUM_BANKS
-NUM_PADS = 40
+NUM_PADS = 30
 MAX_VOICES = 32
 MAX_LAYERS = 8
 CUES_PER_PAGE = 9
@@ -20,6 +20,36 @@ NUM_CUES = CUES_PER_PAGE * NUM_PAGES
 SEEK_SECONDS = 5
 PITCH_MIN = 0.5
 PITCH_MAX = 2.0
+
+
+class Voice:
+    __slots__ = ("data", "pos", "group", "key", "loop", "fade", "fade_left")
+
+    def __init__(self, data, group=0, key=None, loop=None):
+        self.data = data
+        self.pos = 0
+        self.group = group
+        self.key = key
+        self.loop = loop
+        self.fade = 0
+        self.fade_left = 0
+
+    def next_chunk(self, frames: int) -> np.ndarray:
+        if self.loop is None:
+            chunk = self.data[self.pos : self.pos + frames]
+            self.pos += len(chunk)
+            return chunk
+        start, stop = self.loop
+        idx = np.arange(self.pos, self.pos + frames)
+        chunk = self.data[np.where(idx >= stop, start + (idx - start) % (stop - start), idx)]
+        self.pos = start + (self.pos + frames - start) % (stop - start) if self.pos + frames >= stop else self.pos + frames
+        return chunk
+
+    @property
+    def finished(self) -> bool:
+        if self.fade and self.fade_left <= 0:
+            return True
+        return self.loop is None and self.pos >= len(self.data)
 
 
 class Track:
@@ -53,7 +83,7 @@ def load_track(path: Path, title: str | None = None, track_id: str | None = None
 class Mixer:
     def __init__(self):
         self.tracks: list[Track | None] = [None] * NUM_SONGS
-        self._voices: list[list] = []
+        self._voices: list[Voice] = []
         self._lock = threading.Lock()
         self._stream: sd.OutputStream | None = None
         self._recorder: Recorder | None = None
@@ -190,9 +220,30 @@ class Mixer:
         data, group = drums.pads()[pad]
         with self._lock:
             if group:
-                self._voices[:] = [v for v in self._voices if v[2] != group]
-            self._voices.append([data, 0, group])
+                self._voices[:] = [v for v in self._voices if v.group != group]
+            self._voices.append(Voice(data, group))
             del self._voices[:-MAX_VOICES]
+
+    def note_on(self, preset: int, key: int) -> None:
+        from pysamp import instruments
+
+        if not 0 <= preset < len(instruments.INSTRUMENTS) or not 0 <= key < instruments.NUM_KEYS:
+            return
+        data, loop = instruments.note_data(preset, key)
+        with self._lock:
+            self._voices.append(Voice(data, key=key, loop=loop))
+            del self._voices[:-MAX_VOICES]
+
+    def note_off(self, preset: int, key: int) -> None:
+        from pysamp import instruments
+
+        if not 0 <= preset < len(instruments.INSTRUMENTS):
+            return
+        fade = max(int(instruments.INSTRUMENTS[preset].release * SAMPLE_RATE), 1)
+        with self._lock:
+            for voice in self._voices:
+                if voice.key == key and not voice.fade:
+                    voice.fade = voice.fade_left = fade
 
     def start(self) -> None:
         from pysamp import drums
@@ -243,10 +294,13 @@ class Mixer:
                         alive.append(pos)
                 track.layers = alive
             for voice in self._voices:
-                chunk = voice[0][voice[1] : voice[1] + frames]
+                chunk = voice.next_chunk(frames)
+                if voice.fade:
+                    ramp = np.arange(voice.fade_left, voice.fade_left - len(chunk), -1) / voice.fade
+                    chunk = chunk * np.maximum(ramp, 0)[:, None].astype(np.float32)
+                    voice.fade_left -= len(chunk)
                 outdata[: len(chunk)] += chunk
-                voice[1] += len(chunk)
-            self._voices[:] = [v for v in self._voices if v[1] < len(v[0])]
+            self._voices[:] = [v for v in self._voices if not v.finished]
             np.clip(outdata, -1.0, 1.0, out=outdata)
             if self._recorder is not None:
                 self._recorder.push(outdata)

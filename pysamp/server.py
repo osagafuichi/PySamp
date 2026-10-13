@@ -8,6 +8,7 @@ from urllib.parse import parse_qs, urlparse
 
 import numpy as np
 
+from pysamp import instruments
 from pysamp.cuestore import save_cues
 from pysamp.drums import NAMES
 from pysamp.engine import NUM_CUES, NUM_PADS, NUM_SONGS, SAMPLE_RATE, Mixer
@@ -65,6 +66,7 @@ class SamplerServer(ThreadingHTTPServer):
             "status": self.status,
             "songs": songs,
             "drum_names": NAMES,
+            "presets": [{"label": i.label, "notes": instruments.key_names(i)} for i in instruments.INSTRUMENTS],
             "recording": None if frames is None else frames / SAMPLE_RATE,
         }
 
@@ -101,6 +103,23 @@ class SamplerServer(ThreadingHTTPServer):
             if not isinstance(pad, int) or not 0 <= pad < NUM_PADS:
                 raise ValueError("bad pad")
             self.mixer.hit(pad)
+            return
+        if action in ("note", "preset"):
+            preset = cmd["preset"]
+            if not isinstance(preset, int) or not 0 <= preset < len(instruments.INSTRUMENTS):
+                raise ValueError("bad preset")
+            if action == "preset":
+                instruments.notes(preset)
+                return
+            key, on = cmd["key"], cmd["on"]
+            if not isinstance(key, int) or not 0 <= key < instruments.NUM_KEYS:
+                raise ValueError("bad key")
+            if not isinstance(on, bool):
+                raise ValueError("bad on")
+            if on:
+                self.mixer.note_on(preset, key)
+            else:
+                self.mixer.note_off(preset, key)
             return
         song = cmd["song"]
         if not isinstance(song, int) or not 0 <= song < NUM_SONGS:

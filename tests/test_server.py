@@ -163,11 +163,23 @@ def run() -> None:
 
         # Drum pads: names are listed, hits start a voice, bad pads give 400.
         names = c.get_json("/state")["drum_names"]
-        assert len(names) == NUM_PADS and names[0] == "Cowbell" and names[30] == "808 Kick"
+        assert len(names) == NUM_PADS and names[0] == "Closed Hat" and names[20] == "808 Kick"
         assert not mixer._voices
         c.post({"action": "drum", "pad": 0})
         c.post({"action": "drum", "pad": NUM_PADS - 1})
         assert len(mixer._voices) == 2
+        mixer._voices.clear()
+
+        # Instrument presets: labels and key names are listed, notes start and release voices.
+        presets = c.get_json("/state")["presets"]
+        assert len(presets) == 9 and presets[0]["label"] == "Grand Piano" and presets[2]["label"] == "Organ"
+        assert all(len(p["notes"]) == 30 for p in presets)
+        c.post({"action": "preset", "preset": 1})
+        c.post({"action": "note", "preset": 0, "key": 5, "on": True})
+        c.post({"action": "note", "preset": 0, "key": 6, "on": True})
+        assert [v.key for v in mixer._voices] == [5, 6]
+        c.post({"action": "note", "preset": 0, "key": 5, "on": False})
+        assert [bool(v.fade) for v in mixer._voices] == [True, False]
         mixer._voices.clear()
 
         # Recording: state reports seconds, files land in RECORD_DIR, stopping saves.
@@ -210,6 +222,15 @@ def run() -> None:
         assert status_of(lambda: c.post({"action": "drum", "pad": -1})) == 400
         assert status_of(lambda: c.post({"action": "drum", "pad": "1"})) == 400
         assert status_of(lambda: c.post({"action": "drum"})) == 400
+        assert status_of(lambda: c.post({"action": "preset", "preset": 9})) == 400
+        assert status_of(lambda: c.post({"action": "preset", "preset": "1"})) == 400
+        assert status_of(lambda: c.post({"action": "preset"})) == 400
+        assert status_of(lambda: c.post({"action": "note", "preset": -1, "key": 0, "on": True})) == 400
+        assert status_of(lambda: c.post({"action": "note", "preset": 0, "key": 30, "on": True})) == 400
+        assert status_of(lambda: c.post({"action": "note", "preset": 0, "key": "1", "on": True})) == 400
+        assert status_of(lambda: c.post({"action": "note", "preset": 0, "key": 0, "on": 1})) == 400
+        assert status_of(lambda: c.post({"action": "note", "preset": 0, "key": 0})) == 400
+        assert not mixer._voices
         assert status_of(lambda: c.post({"action": "remove_cue", "song": 0})) == 400
         assert status_of(lambda: c.post({"action": "remove_cue", "song": 0, "cue": NUM_CUES})) == 400
         assert status_of(lambda: c.post({"action": "remove_cue", "song": 0, "cue": "1"})) == 400

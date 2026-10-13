@@ -115,49 +115,9 @@ def crash(seconds: float, decay: float, low: float, high: float) -> np.ndarray:
     return sound * np.minimum(t / 0.003, 1) * np.exp(-t / decay)
 
 
-def cowbell() -> np.ndarray:
-    t = ts(0.4)
-    return unit(band(metal(t, (540.0, 800.0)), 400, 3000)) * (0.7 * np.exp(-t / 0.02) + 0.3 * np.exp(-t / 0.12))
-
-
-def triangle() -> np.ndarray:
-    return sum(tone(f, 0.9, 1.2) for f in (3500, 5300, 7600, 9700))
-
-
-def tambourine() -> np.ndarray:
-    t = ts(0.5)
-    return (unit(band(metal(t, HAT_FREQS), 5000, 15000)) + 0.5 * unit(band(noise(0.5), 5000, 15000))) * np.exp(-t / 0.15)
-
-
-def conga(freq: float) -> np.ndarray:
-    t = ts(0.4)
-    slap = 0.4 * unit(band(noise(0.4), 1000, 4000)) * np.exp(-t / 0.01)
-    return pitched(freq * 1.15, freq, 0.02, 0.12, 0.4) + slap
-
-
-def laser() -> np.ndarray:
-    t = ts(0.3)
-    phase = 2 * np.pi * np.cumsum(150 + 2400 * np.exp(-t * 9)) / SAMPLE_RATE
-    return np.sin(phase) * np.exp(-t / 0.15)
-
-
-def woodblock() -> np.ndarray:
-    return tone(1800, 0.03, 0.15) + 0.5 * tone(2700, 0.02, 0.15)
-
-
 # (name, sound, level, choke group); group 0 never chokes. Listed row by row,
-# left to right, matching the number, QWERTY, ASDF and ZXCV key rows.
+# left to right, matching the QWERTY, ASDF and ZXCV key rows.
 PADS = [
-    ("Cowbell", cowbell, 0.8, 0),
-    ("Clave", lambda: tone(2500, 0.03, 0.15), 0.8, 0),
-    ("Wood Block", woodblock, 0.8, 0),
-    ("Triangle", triangle, 0.6, 0),
-    ("Tambo", tambourine, 0.8, 0),
-    ("Conga High", lambda: conga(330), 0.9, 0),
-    ("Conga Low", lambda: conga(220), 0.9, 0),
-    ("Bongo", lambda: conga(450), 0.8, 0),
-    ("Maracas", lambda: shaker(0.03, 0.15, 6000, 14000), 0.6, 0),
-    ("Laser", laser, 0.7, 0),
     ("Closed Hat", lambda: hat(0.025, 0.15), 0.7, 1),
     ("Tight Hat", lambda: hat(0.012, 0.1, 7000), 0.7, 1),
     ("Open Hat", lambda: hat(0.25, 0.8), 0.7, 1),

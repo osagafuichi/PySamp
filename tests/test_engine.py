@@ -282,18 +282,19 @@ def test_drum_hits():
 
     mixer = Mixer()
     assert not pull(mixer).any()
-    mixer.hit(30)
+    kick = drums.NAMES.index("808 Kick")
+    mixer.hit(kick)
     out = pull(mixer)
-    np.testing.assert_allclose(out, kit[30][0][:FRAMES])
-    np.testing.assert_allclose(pull(mixer), kit[30][0][FRAMES : 2 * FRAMES])
+    np.testing.assert_allclose(out, kit[kick][0][:FRAMES])
+    np.testing.assert_allclose(pull(mixer), kit[kick][0][FRAMES : 2 * FRAMES])
 
     mixer = Mixer()
     mixer.hit(NUM_PADS)
     mixer.hit(-1)
     assert not pull(mixer).any() and not mixer._voices, "bad pads are ignored"
 
-    mixer.hit(30)
-    for _ in range(len(kit[30][0]) // FRAMES + 2):
+    mixer.hit(kick)
+    for _ in range(len(kit[kick][0]) // FRAMES + 2):
         pull(mixer)
     assert not mixer._voices, "finished voices are dropped"
     assert not pull(mixer).any()
@@ -303,7 +304,7 @@ def test_drum_hits():
     mixer.hit(open_hat)
     mixer.hit(snare)
     mixer.hit(closed_hat)
-    kept = [v[0] for v in mixer._voices]
+    kept = [v.data for v in mixer._voices]
     assert len(kept) == 2 and kept[0] is kit[snare][0] and kept[1] is kit[closed_hat][0], "closed hat cuts the open hat"
 
     mixer = Mixer()
@@ -333,6 +334,62 @@ def test_drums_play_over_songs():
         mixer.stop_all()
         mixer.hit(1)
         assert pull(mixer).any(), "stop_all leaves drums alone"
+
+
+def test_notes_play_and_release():
+    from pysamp import instruments
+
+    piano, organ = 0, 2
+    assert instruments.INSTRUMENTS[organ].label == "Organ"
+    mixer = Mixer()
+    mixer.note_on(piano, 3)
+    data, loop = instruments.note_data(piano, 3)
+    assert loop is None
+    np.testing.assert_allclose(pull(mixer), np.broadcast_to(data[:FRAMES], (FRAMES, 2)))
+    np.testing.assert_allclose(pull(mixer), np.broadcast_to(data[FRAMES : 2 * FRAMES], (FRAMES, 2)))
+
+    mixer = Mixer()
+    mixer.note_on(piano, 3)
+    mixer.note_on(piano, 4)
+    mixer.note_off(piano, 3)
+    release = int(instruments.INSTRUMENTS[piano].release * SAMPLE_RATE)
+    for _ in range(release // FRAMES + 2):
+        pull(mixer)
+    assert [v.key for v in mixer._voices] == [4], "note_off fades out only its own key, then drops the voice"
+
+    mixer = Mixer()
+    mixer.note_on(piano, 3)
+    before = pull(mixer)
+    mixer.note_off(piano, 3)
+    faded = pull(mixer)
+    unfaded = np.broadcast_to(instruments.note_data(piano, 3)[0][FRAMES : 2 * FRAMES], (FRAMES, 2))
+    assert np.abs(faded[-1]).max() < np.abs(unfaded[-1]).max() + 1e-9 and np.abs(faded).sum() < np.abs(unfaded).sum()
+    assert before.any()
+
+    mixer = Mixer()
+    mixer.note_on(organ, 0)
+    data, loop = instruments.note_data(organ, 0)
+    assert loop is not None
+    for _ in range(len(data) // FRAMES + 40):
+        out = pull(mixer)
+    assert out.any() and len(mixer._voices) == 1, "a looping note keeps sounding past the end of its sample"
+    mixer.note_off(organ, 0)
+    for _ in range(int(instruments.INSTRUMENTS[organ].release * SAMPLE_RATE) // FRAMES + 2):
+        pull(mixer)
+    assert not mixer._voices and not pull(mixer).any()
+
+    mixer = Mixer()
+    mixer.note_on(-1, 0)
+    mixer.note_on(9, 0)
+    mixer.note_on(piano, -1)
+    mixer.note_on(piano, instruments.NUM_KEYS)
+    mixer.note_off(99, 0)
+    assert not mixer._voices and not pull(mixer).any(), "bad presets and keys are ignored"
+
+    mixer = Mixer()
+    for _ in range(MAX_VOICES + 10):
+        mixer.note_on(piano, 0)
+    assert len(mixer._voices) == MAX_VOICES
 
 
 def test_recording_captures_the_mix():
@@ -394,6 +451,7 @@ if __name__ == "__main__":
     test_shift_layers_cues_within_one_song()
     test_drum_hits()
     test_drums_play_over_songs()
+    test_notes_play_and_release()
     test_recording_captures_the_mix()
     test_cue_store_roundtrip()
     print("engine tests passed")
